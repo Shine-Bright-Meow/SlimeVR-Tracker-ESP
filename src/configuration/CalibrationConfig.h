@@ -47,7 +47,7 @@ namespace SlimeVR {
 
         struct SoftFusionCalibrationConfig {
             ImuID ImuType;
-            uint16_t MotionlessDataLen; 
+            uint16_t MotionlessDataLen;
 
             // accelerometer offsets and correction matrix
             float A_B[3];
@@ -63,7 +63,7 @@ namespace SlimeVR {
             // calibration temperature for dynamic compensation
             float temperature;
 
-            // real measured sensor sampling rate 
+            // real measured sensor sampling rate
             float A_Ts;
             float G_Ts;
             float M_Ts;
@@ -120,7 +120,7 @@ namespace SlimeVR {
             float G_off[3];
         };
 
-        enum CalibrationConfigType { NONE, BMI160, MPU6050, MPU9250, ICM20948, SFUSION };
+        enum CalibrationConfigType { NONE, BMI160, MPU6050, MPU9250, ICM20948, MPU6050_SF, SFUSION };
 
         const char* calibrationConfigTypeToString(CalibrationConfigType type);
 

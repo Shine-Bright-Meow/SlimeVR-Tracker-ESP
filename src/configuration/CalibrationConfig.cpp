@@ -37,6 +37,7 @@ namespace SlimeVR {
                 return "MPU9250";
             case ICM20948:
                 return "ICM20948";
+			case MPU6050_SF:
             case SFUSION:
                 return "SoftFusion (common)";
             default:

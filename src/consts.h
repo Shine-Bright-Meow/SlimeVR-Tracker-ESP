@@ -42,6 +42,7 @@ enum class ImuID {
     LSM6DSV,
     LSM6DSO,
     LSM6DSR,
+	MPU6050_SF,
     Empty = 255
 };
 

@@ -55,8 +55,8 @@ struct MPU6050
     #define MPU6050_FIFO_VALUE(fifo, name) (((int16_t)fifo->name##_h << 8) | ((int16_t)fifo->name##_l))
 
     static constexpr uint8_t Address = 0x68;
-    static constexpr auto Name = "MPU-6050";
-    static constexpr auto Type = ImuID::MPU6050;
+    static constexpr auto Name = "MPU-6050_SF";
+    static constexpr auto Type = ImuID::MPU6050_SF;
 
     static constexpr float Freq = 250;
 
@@ -117,7 +117,7 @@ struct MPU6050
         delay(100);
         i2c.writeReg(MPU6050_RA_SIGNAL_PATH_RESET, 0x07); // full SIGNAL_PATH_RESET: with another 100ms delay
         delay(100);
-        
+
         // Configure
         i2c.writeReg(MPU6050_RA_PWR_MGMT_1,   0x01); // 0000 0001 PWR_MGMT_1:Clock Source Select PLL_X_gyro
         i2c.writeReg(MPU6050_RA_USER_CTRL,    0x00); // 0000 0000 USER_CTRL: Disable FIFO / I2C master / DMP
@@ -164,7 +164,7 @@ struct MPU6050
         i2c.readBytes(Regs::FifoData, readBytes, readBuffer.data());
         for (auto i = 0u; i < readBytes; i += sizeof(FifoSample)) {
             const FifoSample *sample = reinterpret_cast<FifoSample *>(&readBuffer[i]);
-            
+
             int16_t xyz[3];
 
             xyz[0] = MPU6050_FIFO_VALUE(sample, accel_x);

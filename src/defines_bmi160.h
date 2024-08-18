@@ -65,7 +65,7 @@
 // Send temperature to the server as AXXYY,
 // where XX is calibration progress from 0 to 60, and YY is temperature,
 // A is 1: not in calibration mode or 2: calibration in progress.
-#define BMI160_TEMPCAL_DEBUG false
+#define BMI160_TEMPCAL_DEBUG true
 
 // Print debug info every second.
 #define BMI160_DEBUG false

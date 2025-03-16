@@ -130,12 +130,17 @@ void VQF::updateAcc(const vqf_real_t acc[3])
 
     // bias estimation
 #ifndef VQF_NO_MOTION_BIAS_ESTIMATION
-    if (params.motionBiasEstEnabled || params.restBiasEstEnabled) {
+    state.mbeCounter--;
+    if ((params.motionBiasEstEnabled || params.restBiasEstEnabled) && (state.mbeCounter <= 0)) {
+
+        state.mbeCounter = params.mbeDivider;
         vqf_real_t biasClip = params.biasClip*vqf_real_t(M_PI/180.0);
 
         vqf_real_t accGyrQuat[4];
         vqf_real_t R[9];
         vqf_real_t biasLp[2];
+
+		vqf_real_t accTs = coeffs.accTs * params.mbeDivider;
 
         // get rotation matrix corresponding to accGyrQuat
         getQuat6D(accGyrQuat);
@@ -154,9 +159,8 @@ void VQF::updateAcc(const vqf_real_t acc[3])
         biasLp[1] = R[3]*state.bias[0] + R[4]*state.bias[1] + R[5]*state.bias[2];
 
         // low-pass filter R and R*b_hat
-        filterVec(R, 9, params.tauAcc, coeffs.accTs, coeffs.accLpB, coeffs.accLpA, state.motionBiasEstRLpState, R);
-        filterVec(biasLp, 2, params.tauAcc, coeffs.accTs, coeffs.accLpB, coeffs.accLpA, state.motionBiasEstBiasLpState,
-                  biasLp);
+        filterVec(R, 9, params.tauAcc, accTs, coeffs.mbeAccLpB, coeffs.mbeAccLpA, state.motionBiasEstRLpState, R);
+        filterVec(biasLp, 2, params.tauAcc, accTs, coeffs.mbeAccLpB, coeffs.mbeAccLpA, state.motionBiasEstBiasLpState, biasLp);
 
         // set measurement error and covariance for the respective Kalman filter update
         vqf_real_t w[3];
@@ -168,8 +172,8 @@ void VQF::updateAcc(const vqf_real_t acc[3])
             matrix3SetToScaledIdentity(1.0, R);
             std::fill(w, w+3, coeffs.biasRestW);
         } else if (params.motionBiasEstEnabled) {
-            e[0] = -accEarth[1]/coeffs.accTs + biasLp[0] - R[0]*state.bias[0] - R[1]*state.bias[1] - R[2]*state.bias[2];
-            e[1] = accEarth[0]/coeffs.accTs + biasLp[1] - R[3]*state.bias[0] - R[4]*state.bias[1] - R[5]*state.bias[2];
+            e[0] = -accEarth[1]/accTs + biasLp[0] - R[0]*state.bias[0] - R[1]*state.bias[1] - R[2]*state.bias[2];
+            e[1] = accEarth[0]/accTs + biasLp[1] - R[3]*state.bias[0] - R[4]*state.bias[1] - R[5]*state.bias[2];
             e[2] = - R[6]*state.bias[0] - R[7]*state.bias[1] - R[8]*state.bias[2];
             w[0] = coeffs.biasMotionW;
             w[1] = coeffs.biasMotionW;
@@ -394,6 +398,10 @@ vqf_real_t VQF::getBiasEstimate(vqf_real_t out[3]) const
         std::copy(state.bias, state.bias+3, out);
     }
 #ifndef VQF_NO_MOTION_BIAS_ESTIMATION
+    double newB_mbe[3];
+    double newA_mbe[3];
+    filterCoeffs(params.tauAcc, coeffs.accTs * params.mbeDivider, newB_mbe, newA_mbe);
+
     // use largest absolute row sum as upper bound estimate for largest eigenvalue (Gershgorin circle theorem)
     // and clip output to biasSigmaInit
     vqf_real_t sum1 = fabs(state.biasP[0]) + fabs(state.biasP[1]) + fabs(state.biasP[2]);
@@ -461,6 +469,7 @@ void VQF::setMotionBiasEstEnabled(bool enabled)
     params.motionBiasEstEnabled = enabled;
     std::fill(state.motionBiasEstRLpState, state.motionBiasEstRLpState + 9*2, NaN);
     std::fill(state.motionBiasEstBiasLpState, state.motionBiasEstBiasLpState + 2*2, NaN);
+	state.mbeCounter = 0;
 }
 #endif
 
@@ -515,12 +524,15 @@ void VQF::setTauAcc(vqf_real_t tauAcc)
     for (size_t i = 0; i < 9; i++) {
         R[i] = state.motionBiasEstRLpState[2*i];
     }
-    filterAdaptStateForCoeffChange(R, 9, coeffs.accLpB, coeffs.accLpA, newB, newA, state.motionBiasEstRLpState);
+    filterAdaptStateForCoeffChange(R, 9, coeffs.mbeAccLpB, coeffs.mbeAccLpA, newB_mbe, newA_mbe, state.motionBiasEstRLpState);
     vqf_real_t biasLp[2];
     for (size_t i = 0; i < 2; i++) {
         biasLp[i] = state.motionBiasEstBiasLpState[2*i];
     }
-    filterAdaptStateForCoeffChange(biasLp, 2, coeffs.accLpB, coeffs.accLpA, newB, newA, state.motionBiasEstBiasLpState);
+    filterAdaptStateForCoeffChange(biasLp, 2, coeffs.mbeAccLpB, coeffs.mbeAccLpA, newB_mbe, newA_mbe, state.motionBiasEstBiasLpState);
+
+    std::copy(newB_mbe, newB_mbe+3, coeffs.mbeAccLpB);
+    std::copy(newA_mbe, newA_mbe+2, coeffs.mbeAccLpA);
 #endif
 
     std::copy(newB, newB+3, coeffs.accLpB);
@@ -876,7 +888,10 @@ void VQF::setup()
     assert(coeffs.accTs > 0);
     assert(coeffs.magTs > 0);
 
+	auto mbeAccTs = coeffs.accTs * params.mbeDivider;
+
     filterCoeffs(params.tauAcc, coeffs.accTs, coeffs.accLpB, coeffs.accLpA);
+	filterCoeffs(params.tauAcc, coeffs.accTs * params.mbeDivider, coeffs.mbeAccLpB, coeffs.mbeAccLpA);
 
     coeffs.kMag = gainFromTau(params.tauMag, coeffs.magTs);
 
@@ -900,7 +915,7 @@ void VQF::setup()
 }
 
 void VQF::updateBiasForgettingTime(float biasForgettingTime) {
-    coeffs.biasV = square(0.1*100.0)*coeffs.accTs/params.biasForgettingTime;
+    coeffs.biasV = square(0.1*100.0)*mbeAccTs/params.biasForgettingTime;
 
 #ifndef VQF_NO_MOTION_BIAS_ESTIMATION
     vqf_real_t pMotion = square(params.biasSigmaMotion*100.0);

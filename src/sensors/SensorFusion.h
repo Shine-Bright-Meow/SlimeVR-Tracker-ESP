@@ -51,6 +51,7 @@ namespace Sensors {
 //  restFilterTau = 0.5f;
 //  restThGyr = 1.0f;  // 400 norm
 //  restThAcc = 0.196f;  // 100 norm
+	mbeDivider = MBE_SAMPLE_RATE_DIVIDER;
 
 class SensorFusion {
 public:

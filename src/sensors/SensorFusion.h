@@ -37,17 +37,45 @@
 
 namespace SlimeVR {
 namespace Sensors {
-#if SENSOR_USE_VQF
-constexpr VQFParams DefaultVQFParams = VQFParams{
-	.tauAcc = 2.0f,
-	.restMinT = 2.0f,
-	.restThGyr = 0.6f,
-	.restThAcc = 0.06f,
-};
-#endif
+
+// Previous VQF params:
+//  motionBiasEstEnabled = true;
+//  tauAcc = 3.0f;
+//  biasSigmaInit = 1.0f;
+//  biasForgettingTime = 60.0f;
+//  biasClip = 2.0f;
+//  biasSigmaMotion = 0.1175f;
+//  biasVerticalForgettingFactor = 10 - 0.03f;
+//  biasSigmaRest = 0.007f;
+//  restMinT = 1.5f;
+//  restFilterTau = 0.5f;
+//  restThGyr = 1.0f;  // 400 norm
+//  restThAcc = 0.196f;  // 100 norm
 
 class SensorFusion {
 public:
+	SensorFusion(
+		sensor_real_t gyrTs,
+		sensor_real_t accTs = -1.0,
+		sensor_real_t magTs = -1.0
+	)
+		: gyrTs(gyrTs)
+		, accTs((accTs < 0) ? gyrTs : accTs)
+		, magTs((magTs < 0) ? gyrTs : magTs)
+#if SENSOR_USE_MAHONY
+#elif SENSOR_USE_MADGWICK
+#elif SENSOR_USE_BASICVQF
+		, basicvqf(gyrTs, ((accTs < 0) ? gyrTs : accTs), ((magTs < 0) ? gyrTs : magTs))
+#elif SENSOR_USE_VQF
+		, vqf(vqfParams,
+			  gyrTs,
+			  ((accTs < 0) ? gyrTs : accTs),
+			  ((magTs < 0) ? gyrTs : magTs))
+#endif
+	{
+	}
+
+#if SENSOR_USE_VQF
 	SensorFusion(
 		VQFParams vqfParams,
 		sensor_real_t gyrTs,
@@ -58,25 +86,11 @@ public:
 		, accTs((accTs < 0) ? gyrTs : accTs)
 		, magTs((magTs < 0) ? gyrTs : magTs)
 		, vqfParams(vqfParams)
-#if SENSOR_USE_MAHONY
-#elif SENSOR_USE_MADGWICK
-#elif SENSOR_USE_BASICVQF
-		, basicvqf(gyrTs, ((accTs < 0) ? gyrTs : accTs), ((magTs < 0) ? gyrTs : magTs))
-#elif SENSOR_USE_VQF
-		, vqf(this->vqfParams,
+		, vqf(vqfParams,
 			  gyrTs,
 			  ((accTs < 0) ? gyrTs : accTs),
-			  ((magTs < 0) ? gyrTs : magTs))
+			  ((magTs < 0) ? gyrTs : magTs)) {}
 #endif
-	{
-	}
-
-	explicit SensorFusion(
-		sensor_real_t gyrTs,
-		sensor_real_t accTs = -1.0,
-		sensor_real_t magTs = -1.0
-	)
-		: SensorFusion(DefaultVQFParams, gyrTs, accTs, magTs) {}
 
 	void update6D(
 		sensor_real_t Axyz[3],
@@ -111,6 +125,8 @@ public:
 
 #if SENSOR_USE_VQF
 	void updateBiasForgettingTime(float biasForgettingTime);
+
+	void updateRestDetectionParams(float restThGyr, float restThAcc);
 #endif
 
 protected:

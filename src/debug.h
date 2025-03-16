@@ -38,7 +38,7 @@
 	false  // monitor accel for (triple) tap events and send them. Uses more cpu,
 		   // disable if problems. Server does nothing with value so disabled atm
 #define SEND_ACCELERATION true  // send linear acceleration to the server
-
+#define USE_NONBLOCKING_CALIBRATION true
 // Debug information
 
 #define LOG_LEVEL LOG_LEVEL_DEBUG
@@ -82,7 +82,7 @@
 // Experimental
 #define OPTIMIZE_UPDATES true
 
-#define I2C_SPEED 800000
+#define I2C_SPEED 400000
 
 #define COMPLIANCE_MODE true
 #define USE_ATTENUATION COMPLIANCE_MODE&& ESP8266
@@ -94,20 +94,10 @@
 // Not recommended for production
 #define ENABLE_INSPECTION false
 
-#define PROTOCOL_VERSION 20
+#define PROTOCOL_VERSION 18
 
 #ifndef FIRMWARE_VERSION
 #define FIRMWARE_VERSION "UNKNOWN"
-#endif
-
-#ifndef USE_RUNTIME_CALIBRATION
-#define USE_RUNTIME_CALIBRATION true
-#endif
-
-#define DEBUG_MEASURE_SENSOR_TIME_TAKEN false
-
-#ifndef DEBUG_MEASURE_SENSOR_TIME_TAKEN
-#define DEBUG_MEASURE_SENSOR_TIME_TAKEN false
 #endif
 
 #endif  // SLIMEVR_DEBUG_H_

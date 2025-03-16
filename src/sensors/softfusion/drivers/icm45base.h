@@ -49,9 +49,24 @@ struct ICM45Base {
 	static constexpr float TemperatureBias = 25.0f;
 	static constexpr float TemperatureSensitivity = 128.0f;
 
+	static constexpr bool Uses32BitSensorData = true;
+
+	// Temperature stability constant - how many degrees of temperature for the bias to
+	// change by 0.01 Though I don't know if it should be 0.1 or 0.01, this is a guess
+	// and seems to work better than 0.1
 	static constexpr float TemperatureZROChange = 20.0f;
 
-	static constexpr bool Uses32BitSensorData = true;
+	// VQF parameters
+	// biasSigmaInit and and restThGyr should be the sensor's typical gyro bias
+	// biasClip should be 2x the sensor's typical gyro bias
+	// restThAcc should be the sensor's typical acceleration bias
+	static constexpr VQFParams SensorVQFParams{
+		.motionBiasEstEnabled = true,
+		.biasSigmaInit = 0.3f,
+		.biasClip = 0.6f,
+		.restThGyr = 0.3f,
+		.restThAcc = 0.0098f,
+	};
 
 	I2CImpl i2c;
 	SlimeVR::Logging::Logger& logger;
@@ -108,11 +123,16 @@ struct ICM45Base {
 
 #pragma pack(push, 1)
 	struct FifoEntryAligned {
-		int16_t accel[3];
-		int16_t gyro[3];
-		uint16_t temp;
-		uint16_t timestamp;
-		uint8_t lsb[3];
+		union {
+			struct {
+				int16_t accel[3];
+				int16_t gyro[3];
+				uint16_t temp;
+				uint16_t timestamp;
+				uint8_t lsb[3];
+			} part;
+			uint8_t raw[19];
+		};
 	};
 #pragma pack(pop)
 
@@ -135,14 +155,20 @@ struct ICM45Base {
 		return true;
 	}
 
-	template <typename AccelCall, typename GyroCall, typename TempCall>
+	float getDirectTemp() const {
+		const auto value = static_cast<int16_t>(i2c.readReg16(BaseRegs::TempData));
+		float result = ((float)value / 132.48f) + 25.0f;
+		return result;
+	}
+
+	template <typename AccelCall, typename GyroCall, typename TemperatureCall>
 	void bulkRead(
 		AccelCall&& processAccelSample,
 		GyroCall&& processGyroSample,
-		TempCall&& processTemperatureSample
+		TemperatureCall&& processTemperatureSample
 	) {
 		const auto fifo_packets = i2c.readReg16(BaseRegs::FifoCount);
-		const auto fifo_bytes = fifo_packets * FullFifoEntrySize;
+		const auto fifo_bytes = fifo_packets * sizeof(FullFifoEntrySize);
 
 		std::array<uint8_t, FullFifoEntrySize * 8> read_buffer;  // max 8 readings
 		const auto bytes_to_read = std::min(
@@ -154,34 +180,37 @@ struct ICM45Base {
 		for (auto i = 0u; i < bytes_to_read; i += FullFifoEntrySize) {
 			FifoEntryAligned entry;
 			memcpy(
-				&entry,
+				entry.raw,
 				&read_buffer[i + 0x1],
 				sizeof(FifoEntryAligned)
 			);  // skip fifo header
 			const int32_t gyroData[3]{
-				static_cast<int32_t>(entry.gyro[0]) << 4 | (entry.lsb[0] & 0xf),
-				static_cast<int32_t>(entry.gyro[1]) << 4 | (entry.lsb[1] & 0xf),
-				static_cast<int32_t>(entry.gyro[2]) << 4 | (entry.lsb[2] & 0xf),
+				static_cast<int32_t>(entry.part.gyro[0]) << 4
+					| (entry.part.lsb[0] & 0xf),
+				static_cast<int32_t>(entry.part.gyro[1]) << 4
+					| (entry.part.lsb[1] & 0xf),
+				static_cast<int32_t>(entry.part.gyro[2]) << 4
+					| (entry.part.lsb[2] & 0xf),
 			};
 			processGyroSample(gyroData, GyrTs);
 
-			if (entry.accel[0] != -32768) {
+			if (entry.part.accel[0] != -32768) {
 				const int32_t accelData[3]{
-					static_cast<int32_t>(entry.accel[0]) << 4
-						| (static_cast<int32_t>((entry.lsb[0]) & 0xf0) >> 4),
-					static_cast<int32_t>(entry.accel[1]) << 4
-						| (static_cast<int32_t>((entry.lsb[1]) & 0xf0) >> 4),
-					static_cast<int32_t>(entry.accel[2]) << 4
-						| (static_cast<int32_t>((entry.lsb[2]) & 0xf0) >> 4),
+					static_cast<int32_t>(entry.part.accel[0]) << 4
+						| (static_cast<int32_t>(entry.part.lsb[0]) & 0xf0 >> 4),
+					static_cast<int32_t>(entry.part.accel[1]) << 4
+						| (static_cast<int32_t>(entry.part.lsb[1]) & 0xf0 >> 4),
+					static_cast<int32_t>(entry.part.accel[2]) << 4
+						| (static_cast<int32_t>(entry.part.lsb[2]) & 0xf0 >> 4),
 				};
 				processAccelSample(accelData, AccTs);
 			}
 
-			if (entry.temp != 0x8000) {
-				processTemperatureSample(static_cast<int16_t>(entry.temp), TempTs);
+			if (entry.part.temp != 0x8000) {
+				processTemperatureSample(static_cast<int16_t>(entry.part.temp), TempTs);
 			}
 		}
 	}
 };
 
-};  // namespace SlimeVR::Sensors::SoftFusion::Drivers
+}  // namespace SlimeVR::Sensors::SoftFusion::Drivers

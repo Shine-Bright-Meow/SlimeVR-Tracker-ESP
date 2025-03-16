@@ -46,12 +46,9 @@ void ICM20948Sensor::motionSetup() {
 	loadCalibration();
 	startMotionLoop();
 	startCalibrationAutoSave();
-	m_tpsCounter.reset();
-	m_dataCounter.reset();
 }
 
 void ICM20948Sensor::motionLoop() {
-	m_tpsCounter.update();
 #if ENABLE_INSPECTION
 	{
 		(void)imu.getAGMT();
@@ -332,10 +329,7 @@ void ICM20948Sensor::checkSensorTimeout() {
 			addr,
 			currenttime - lastData
 		);
-		networkConnection.sendSensorError(
-			this->sensorId,
-			static_cast<uint8_t>(PacketErrorCode::WATCHDOG_TIMEOUT)
-		);
+		networkConnection.sendSensorError(this->sensorId, 1);
 		lastData = currenttime;
 	}
 }

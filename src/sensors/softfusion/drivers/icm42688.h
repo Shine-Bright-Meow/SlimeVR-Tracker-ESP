@@ -27,11 +27,9 @@
 #include <array>
 #include <cstdint>
 
-#include "vqf.h"
-
 namespace SlimeVR::Sensors::SoftFusion::Drivers {
 
-// Driver uses acceleration range at 8g
+// Driver uses acceleration range at 4g
 // and gyroscope range at 1000dps
 // Gyroscope ODR = 500Hz, accel ODR = 100Hz
 // Timestamps reading not used, as they're useless (constant predefined increment)
@@ -40,7 +38,7 @@ template <typename I2CImpl>
 struct ICM42688 {
 	static constexpr uint8_t Address = 0x68;
 	static constexpr auto Name = "ICM-42688";
-	static constexpr auto Type = SensorTypeID::ICM42688;
+	static constexpr auto Type = ImuID::ICM42688;
 
 	static constexpr float GyrTs = 1.0 / 500.0;
 	static constexpr float AccTs = 1.0 / 100.0;
@@ -49,15 +47,22 @@ struct ICM42688 {
 	static constexpr float MagTs = 1.0 / 100;
 
 	static constexpr float GyroSensitivity = 32.8f;
-	static constexpr float AccelSensitivity = 4096.0f;
+	static constexpr float AccelSensitivity = 8192.0f;
 
 	static constexpr bool Uses32BitSensorData = true;
 
 	static constexpr float TemperatureBias = 25.0f;
 	static constexpr float TemperatureSensitivity = 2.07f;
 
+	// Temperature stability constant - how many degrees of temperature for the bias to
+	// change by 0.01 Though I don't know if it should be 0.1 or 0.01, this is a guess
+	// and seems to work better than 0.1
 	static constexpr float TemperatureZROChange = 20.0f;
 
+	// VQF parameters
+	// biasSigmaInit and and restThGyr should be the sensor's typical gyro bias
+	// biasClip should be 2x the sensor's typical gyro bias
+	// restThAcc should be the sensor's typical acceleration bias
 	static constexpr VQFParams SensorVQFParams{
 		.motionBiasEstEnabled = true,
 		.biasSigmaInit = 0.5f,
@@ -77,6 +82,7 @@ struct ICM42688 {
 			static constexpr uint8_t reg = 0x75;
 			static constexpr uint8_t value = 0x47;
 		};
+		static constexpr uint8_t TempData = 0x1d;
 
 		struct DeviceConfig {
 			static constexpr uint8_t reg = 0x11;
@@ -95,8 +101,8 @@ struct ICM42688 {
 		struct FifoConfig1 {
 			static constexpr uint8_t reg = 0x5f;
 			static constexpr uint8_t value
-				= 0b1 | (0b1 << 1) | (0b1 << 2)
-				| (0b0 << 4);  // fifo accel en=1, gyro=1, temp=1, hires=1
+				= 0b1 | (0b1 << 1) | (0b0 << 2)
+				| (0b0 << 4);  // fifo accel en=1, gyro=1, temp=0, hires=1
 		};
 		struct GyroConfig {
 			static constexpr uint8_t reg = 0x4f;
@@ -105,7 +111,7 @@ struct ICM42688 {
 		};
 		struct AccelConfig {
 			static constexpr uint8_t reg = 0x50;
-			static constexpr uint8_t value = (0b001 << 5) | 0b1000;  // 8g, odr = 100Hz
+			static constexpr uint8_t value = (0b010 << 5) | 0b0111;  // 4g, odr = 200Hz
 		};
 		struct PwrMgmt {
 			static constexpr uint8_t reg = 0x4e;
@@ -157,11 +163,11 @@ struct ICM42688 {
 		return true;
 	}
 
-	template <typename AccelCall, typename GyroCall, typename TempCall>
+	template <typename AccelCall, typename GyroCall, typename TemperatureCall>
 	void bulkRead(
 		AccelCall&& processAccelSample,
 		GyroCall&& processGyroSample,
-		TempCall&& processTemperatureSample
+		TemperatureCall&& processTemperatureSample
 	) {
 		const auto fifo_bytes = i2c.readReg16(Regs::FifoCount);
 
@@ -199,9 +205,7 @@ struct ICM42688 {
 				processAccelSample(accelData, AccTs);
 			}
 
-			if (entry.part.temp != 0x8000) {
-				processTemperatureSample(static_cast<int16_t>(entry.part.temp), TempTs);
-			}
+			processTemperatureSample(static_cast<int16_t>(entry.part.temp), TempTs);
 		}
 	}
 };

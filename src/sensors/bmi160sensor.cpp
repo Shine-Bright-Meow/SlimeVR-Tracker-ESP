@@ -280,12 +280,9 @@ void BMI160Sensor::motionSetup() {
 	}
 
 	working = true;
-	m_tpsCounter.reset();
-	m_dataCounter.reset();
 }
 
 void BMI160Sensor::motionLoop() {
-	m_tpsCounter.update();
 #if ENABLE_INSPECTION
 	{
 		int16_t rX, rY, rZ, aX, aY, aZ;
@@ -309,10 +306,6 @@ void BMI160Sensor::motionLoop() {
 		);
 	}
 #endif
-
-	if (calibrationDetector.update(sfusion)) {
-		markRestCalibrationComplete();
-	}
 
 	{
 		uint32_t now = micros();

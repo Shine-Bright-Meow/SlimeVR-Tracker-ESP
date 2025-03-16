@@ -18,7 +18,13 @@ else:
 
 tag = ""
 try:
-	tag = subprocess.check_output(["git", "--no-pager", "tag", "--sort", "-taggerdate", "--points-at" , "HEAD"]).strip().decode("utf-8")
+	tag = (
+		subprocess.check_output(["git", "--no-pager", "tag", "--sort", "-taggerdate", "--points-at" , "HEAD"])
+			.split("\n")[0]
+			.strip()
+			.decode("utf-8")
+	)
+
 	if tag.startswith("v"):
 		tag = tag[1:]
 except Exception:
@@ -34,13 +40,13 @@ try:
 except Exception:
 	branch = ""
 
-output = f"-DGIT_REV='\"{revision}\"'"
+output = f"'-DGIT_REV=\"{revision}\"'"
 
 if tag != "":
-	output += f" -DFIRMWARE_VERSION='\"{tag}\"'"
-elif branch != "":
-	output += f" -DFIRMWARE_VERSION='\"{branch}\"'"
+	output += f" '-DFIRMWARE_VERSION=\"{tag}\"'"
+if tag == "" and branch != "":
+	output += f" '-DFIRMWARE_VERSION=\"{branch}\"'"
 else:
-	output += f" -DFIRMWARE_VERSION='\"git-{revision}\"'"
+	output += f" '-DFIRMWARE_VERSION=\"git-{revision}\"'"
 
 print(output)

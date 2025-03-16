@@ -47,7 +47,7 @@ struct BMI160SensorConfig {
 };
 
 struct SoftFusionSensorConfig {
-	SensorTypeID ImuType;
+	ImuID ImuType;
 	uint16_t MotionlessDataLen;
 
 	// accelerometer offsets and correction matrix
@@ -73,13 +73,10 @@ struct SoftFusionSensorConfig {
 	float G_Sens[3];
 
 	uint8_t MotionlessData[60];
-
-	// temperature sampling rate (placed at the end to not break existing configs)
-	float T_Ts;
 };
 
-struct RuntimeCalibrationSensorConfig {
-	SensorTypeID ImuType;
+struct NonBlockingSensorConfig {
+	ImuID ImuType;
 	uint16_t MotionlessDataLen;
 
 	bool sensorTimestepsCalibrated;
@@ -157,8 +154,8 @@ enum class SensorConfigType {
 	MPU9250,
 	ICM20948,
 	SFUSION,
-	BNO0XX,
-	RUNTIME_CALIBRATION,
+	NONBLOCKING,
+	BNO0XX
 };
 
 const char* calibrationConfigTypeToString(SensorConfigType type);
@@ -169,11 +166,11 @@ struct SensorConfig {
 	union {
 		BMI160SensorConfig bmi160;
 		SoftFusionSensorConfig sfusion;
+		NonBlockingSensorConfig nonblocking;
 		MPU6050SensorConfig mpu6050;
 		MPU9250SensorConfig mpu9250;
 		ICM20948SensorConfig icm20948;
 		BNO0XXSensorConfig bno0XX;
-		RuntimeCalibrationSensorConfig runtimeCalibration;
 	} data;
 };
 

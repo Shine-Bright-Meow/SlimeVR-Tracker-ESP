@@ -1,6 +1,6 @@
 /*
 	SlimeVR Code is placed under the MIT license
-	Copyright (c) 2022 TheDevMinerTV
+	Copyright (c) 2024 Gorbit99 & SlimeVR Contributors
 
 	Permission is hereby granted, free of charge, to any person obtaining a copy
 	of this software and associated documentation files (the "Software"), to deal
@@ -21,19 +21,26 @@
 	THE SOFTWARE.
 */
 
-#include "ErroneousSensor.h"
+#pragma once
 
-#include "GlobalVars.h"
+#include "CalibrationStep.h"
 
-namespace SlimeVR {
-namespace Sensors {
-void ErroneousSensor::motionSetup() {
-	m_Logger.error(
-		"IMU of type %s failed to initialize",
-		getIMUNameByType(m_ExpectedType)
-	);
-}
+namespace SlimeVR::Sensors::NonBlockingCalibration {
 
-SensorStatus ErroneousSensor::getSensorState() { return SensorStatus::SENSOR_ERROR; };
-}  // namespace Sensors
-}  // namespace SlimeVR
+template <typename SensorRawT>
+class NullCalibrationStep : public CalibrationStep<SensorRawT> {
+	using CalibrationStep<SensorRawT>::sensorConfig;
+	using typename CalibrationStep<SensorRawT>::TickResult;
+
+public:
+	NullCalibrationStep(SlimeVR::Configuration::NonBlockingSensorConfig& sensorConfig)
+		: CalibrationStep<SensorRawT>{sensorConfig} {}
+
+	void start() override final { CalibrationStep<SensorRawT>::start(); }
+
+	TickResult tick() override final { return TickResult::CONTINUE; }
+
+	void cancel() override final {}
+};
+
+}  // namespace SlimeVR::Sensors::NonBlockingCalibration

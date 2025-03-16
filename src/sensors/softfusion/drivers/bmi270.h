@@ -30,37 +30,44 @@
 #include <limits>
 
 #include "bmi270fw.h"
-#include "vqf.h"
 
 namespace SlimeVR::Sensors::SoftFusion::Drivers {
 
-// Driver uses acceleration range at 16g
+// Driver uses acceleration range at 4g
 // and gyroscope range at 1000dps
-// Gyroscope ODR = 400Hz, accel ODR = 100Hz
+// Gyroscope ODR = 400Hz, accel ODR = 200Hz
 // Timestamps reading are not used
 
 template <typename I2CImpl>
 struct BMI270 {
 	static constexpr uint8_t Address = 0x68;
 	static constexpr auto Name = "BMI270";
-	static constexpr auto Type = SensorTypeID::BMI270;
+	static constexpr auto Type = ImuID::BMI270;
 
 	static constexpr float GyrTs = 1.0 / 400.0;
-	static constexpr float AccTs = 1.0 / 100.0;
+	static constexpr float AccTs = 1.0 / 200.0;
+	static constexpr float TempTs = 1.0 / 15.0;
 
 	static constexpr float MagTs = 1.0 / 100;
 
 	static constexpr float GyroSensitivity = 32.768f;
-	static constexpr float AccelSensitivity = 2048.0f;
+	static constexpr float AccelSensitivity = 8192.0f;
 
+	// Temperature stability constant - how many degrees of temperature for the bias to
+	// change by 0.01 Though I don't know if it should be 0.1 or 0.01, this is a guess
+	// and seems to work better than 0.1
 	static constexpr float TemperatureZROChange = 6.667f;
 
+	// VQF parameters
+	// biasSigmaInit and and restThGyr should be the sensor's typical gyro bias
+	// biasClip should be 2x the sensor's typical gyro bias
+	// restThAcc should be the sensor's typical acceleration bias
 	static constexpr VQFParams SensorVQFParams{
 		.motionBiasEstEnabled = true,
 		.biasSigmaInit = 0.5f,
-		.biasClip = 1.0f,
+		.biasClip = 2.0f,
 		.restThGyr = 0.5f,
-		.restThAcc = 0.196f,
+		.restThAcc = 0.2f,
 	};
 
 	struct MotionlessCalibrationData {
@@ -176,7 +183,7 @@ struct BMI270 {
 			static constexpr uint8_t filterHighPerfMode = 1 << 7;
 
 			static constexpr uint8_t value
-				= rate100Hz | DLPFModeAvg4 | filterHighPerfMode;
+				= rate200Hz | DLPFModeAvg4 | filterHighPerfMode;
 		};
 
 		struct AccRange {
@@ -187,7 +194,7 @@ struct BMI270 {
 			static constexpr uint8_t range8G = 2;
 			static constexpr uint8_t range16G = 3;
 
-			static constexpr uint8_t value = range16G;
+			static constexpr uint8_t value = range4G;
 		};
 
 		struct FifoConfig0 {
@@ -351,8 +358,6 @@ struct BMI270 {
 		i2c.writeReg(Regs::PwrCtrl::reg, Regs::PwrCtrl::valueGyrAccTempOn);
 		delay(100);
 
-		bool success;
-
 		if (status != 0) {
 			logger.error(
 				"CRT failed with status 0x%x. Recalibrate again to enable CRT.",
@@ -361,8 +366,6 @@ struct BMI270 {
 			if (status == 0x03) {
 				logger.error("Reason: tracker was moved during CRT!");
 			}
-
-			success = false;
 		} else {
 			std::array<uint8_t, 3> crt_values;
 			i2c.readBytes(Regs::GyrUserGain, crt_values.size(), crt_values.data());
@@ -376,18 +379,11 @@ struct BMI270 {
 			gyroSensitivity.x = crt_values[0];
 			gyroSensitivity.y = crt_values[1];
 			gyroSensitivity.z = crt_values[2];
-
-			success = true;
 		}
-
-		// CRT seems to leave some state behind which isn't persisted after
-		// restart. If we continue without restarting, the gyroscope will behave
-		// differently on this run compared to subsequent restarts.
-		restartAndInit();
 
 		setNormalConfig(gyroSensitivity);
 
-		return success;
+		return status == 0;
 	}
 
 	float getDirectTemp() const {
@@ -410,11 +406,11 @@ struct BMI270 {
 		return to_ret;
 	}
 
-	template <typename AccelCall, typename GyroCall, typename TempCall>
+	template <typename AccelCall, typename GyroCall, typename TemperatureCall>
 	void bulkRead(
 		AccelCall&& processAccelSample,
 		GyroCall&& processGyroSample,
-		TempCall&& processTempSample
+		TemperatureCall&& processTemperatureSample
 	) {
 		const auto fifo_bytes = i2c.readReg16(Regs::FifoCount);
 
@@ -426,17 +422,18 @@ struct BMI270 {
 
 		for (uint32_t i = 0u; i < bytes_to_read;) {
 			const uint8_t header = getFromFifo<uint8_t>(i, read_buffer);
-			if ((header & Fifo::ModeMask) == Fifo::SkipFrame) {
-				if (i + 1 > bytes_to_read) {
-					// incomplete frame, nothing left to process
-					break;
-				}
+			if ((header & Fifo::ModeMask) == Fifo::SkipFrame
+				&& (i - bytes_to_read) >= 1) {
 				getFromFifo<uint8_t>(i, read_buffer);  // skip 1 byte
+				logger.error(
+					"FIFO OVERRUN! This occuring during normal usage is an issue."
+				);
 			} else if ((header & Fifo::ModeMask) == Fifo::DataFrame) {
-				uint8_t gyro_data_length = header & Fifo::GyrDataBit ? 6 : 0;
-				uint8_t accel_data_length = header & Fifo::AccelDataBit ? 6 : 0;
-				uint8_t required_length = gyro_data_length + accel_data_length;
-				if (i + required_length > bytes_to_read) {
+				const uint8_t required_length
+					= (((header & Fifo::GyrDataBit) >> Fifo::GyrDataBit)
+					   + ((header & Fifo::AccelDataBit) >> Fifo::AccelDataBit))
+					* 6;
+				if (i - bytes_to_read < required_length) {
 					// incomplete frame, will be re-read next time
 					break;
 				}

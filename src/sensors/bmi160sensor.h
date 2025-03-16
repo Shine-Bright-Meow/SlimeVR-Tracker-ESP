@@ -29,7 +29,6 @@
 #include "../motionprocessing/GyroTemperatureCalibrator.h"
 #include "../motionprocessing/RestDetection.h"
 #include "../motionprocessing/types.h"
-#include "RestCalibrationDetector.h"
 #include "SensorFusionRestDetect.h"
 #include "magneto1.4.h"
 #include "sensor.h"
@@ -135,24 +134,25 @@ static_assert(
 class BMI160Sensor : public Sensor {
 public:
 	static constexpr uint8_t Address = 0x68;
-	static constexpr auto TypeID = SensorTypeID::BMI160;
+	static constexpr auto TypeID = ImuID::BMI160;
 
 	BMI160Sensor(
 		uint8_t id,
-		uint8_t i2cAddress,
+		uint8_t addrSuppl,
 		float rotation,
-		SlimeVR::SensorInterface* sensorInterface,
-		PinInterface*,
+		uint8_t sclPin,
+		uint8_t sdaPin,
 		int axisRemapParam
 	)
 		: Sensor(
-			"BMI160Sensor",
-			SensorTypeID::BMI160,
-			id,
-			i2cAddress,
-			rotation,
-			sensorInterface
-		)
+			  "BMI160Sensor",
+			  ImuID::BMI160,
+			  id,
+			  Address + addrSuppl,
+			  rotation,
+			  sclPin,
+			  sdaPin
+		  )
 		, sfusion(
 			  BMI160_ODR_GYR_MICROS / 1e6f,
 			  BMI160_ODR_ACC_MICROS / 1e6f,
@@ -265,8 +265,6 @@ private:
 	bool isMagCalibrated = false;
 
 	SlimeVR::Configuration::BMI160SensorConfig m_Config = {};
-
-	SlimeVR::Sensors::RestCalibrationDetector calibrationDetector;
 };
 
 #endif

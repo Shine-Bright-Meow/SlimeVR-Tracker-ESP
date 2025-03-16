@@ -49,11 +49,15 @@ struct LSM6DSOutputHandler {
 
 	static constexpr size_t FullFifoEntrySize = sizeof(FifoEntryAligned) + 1;
 
-	template <typename AccelCall, typename GyroCall, typename TempCall, typename Regs>
+	template <
+		typename AccelCall,
+		typename GyroCall,
+		typename TemperatureCall,
+		typename Regs>
 	void bulkRead(
 		AccelCall& processAccelSample,
 		GyroCall& processGyroSample,
-		TempCall& processTempSample,
+		TemperatureCall& processTemperatureSample,
 		float GyrTs,
 		float AccTs,
 		float TempTs
@@ -94,7 +98,7 @@ struct LSM6DSOutputHandler {
 					processAccelSample(entry.xyz, AccTs);
 					break;
 				case 0x03:  // Temperature
-					processTempSample(entry.xyz[0], TempTs);
+					processTemperatureSample(entry.xyz[0], TempTs);
 					break;
 			}
 		}

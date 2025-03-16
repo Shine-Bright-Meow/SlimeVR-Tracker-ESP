@@ -31,25 +31,26 @@
 
 class MPU6050Sensor : public Sensor {
 public:
-	static constexpr auto TypeID = SensorTypeID::MPU6050;
+	static constexpr auto TypeID = ImuID::MPU6050;
 	static constexpr uint8_t Address = 0x68;
 
 	MPU6050Sensor(
 		uint8_t id,
-		uint8_t i2cAddress,
+		uint8_t addrSuppl,
 		float rotation,
-		SlimeVR::SensorInterface* sensorInterface,
-		PinInterface*,
+		uint8_t sclPin,
+		uint8_t sdaPin,
 		uint8_t
 	)
 		: Sensor(
-			"MPU6050Sensor",
-			SensorTypeID::MPU6050,
-			id,
-			i2cAddress,
-			rotation,
-			sensorInterface
-		){};
+			  "MPU6050Sensor",
+			  ImuID::MPU6050,
+			  id,
+			  Address + addrSuppl,
+			  rotation,
+			  sclPin,
+			  sdaPin
+		  ){};
 	~MPU6050Sensor(){};
 	void motionSetup() override final;
 	void motionLoop() override final;

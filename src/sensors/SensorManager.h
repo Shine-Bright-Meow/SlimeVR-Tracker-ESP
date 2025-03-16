@@ -20,43 +20,22 @@
 	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 	THE SOFTWARE.
 */
-#pragma once
+
+#ifndef SLIMEVR_SENSORMANAGER
+#define SLIMEVR_SENSORMANAGER
 
 #include <i2cscan.h>
 
 #include <memory>
-#include <optional>
 
 #include "EmptySensor.h"
 #include "ErroneousSensor.h"
 #include "globals.h"
 #include "logging/Logger.h"
 #include "sensor.h"
-#include "sensoraddress.h"
-#include "sensorinterface/DirectPinInterface.h"
-#include "sensorinterface/I2CPCAInterface.h"
-#include "sensorinterface/I2CWireSensorInterface.h"
-#include "sensorinterface/MCP23X17PinInterface.h"
 
 namespace SlimeVR {
 namespace Sensors {
-
-#ifndef PRIMARY_IMU_ADDRESS_ONE
-#define PRIMARY_IMU_ADDRESS_ONE true
-#endif
-
-#ifndef PRIMARY_IMU_ADDRESS_TWO
-#define PRIMARY_IMU_ADDRESS_TWO false
-#endif
-
-#ifndef SECONDARY_IMU_ADDRESS_TWO
-#define SECONDARY_IMU_ADDRESS_TWO false
-#endif
-
-#ifndef SECONDARY_IMU_ADDRESS_ONE
-#define SECONDARY_IMU_ADDRESS_ONE true
-#endif
-
 class SensorManager {
 public:
 	SensorManager()
@@ -66,87 +45,95 @@ public:
 
 	void update();
 
-	std::vector<std::unique_ptr<::Sensor>>& getSensors() { return m_Sensors; };
-	SensorTypeID getSensorType(size_t id) {
+	std::vector<std::unique_ptr<Sensor>>& getSensors() { return m_Sensors; };
+	ImuID getSensorType(size_t id) {
 		if (id < m_Sensors.size()) {
 			return m_Sensors[id]->getSensorType();
 		}
-		return SensorTypeID::Unknown;
+		return ImuID::Unknown;
 	}
+
+	uint8_t getActiveSensorCount() { return m_ActiveSensorCount; }
 
 private:
 	SlimeVR::Logging::Logger m_Logger;
 
-	std::vector<std::unique_ptr<::Sensor>> m_Sensors;
-	Adafruit_MCP23X17 m_MCP;
+	std::vector<std::unique_ptr<Sensor>> m_Sensors;
+	uint8_t m_ActiveSensorCount = 0;
 
 	template <typename ImuType>
-	std::unique_ptr<::Sensor> buildSensor(
+	std::unique_ptr<Sensor> buildSensor(
 		uint8_t sensorID,
-		ImuAddress imuAddress,
+		uint8_t addrSuppl,
 		float rotation,
-		SensorInterface* sensorInterface,
+		uint8_t sclPin,
+		uint8_t sdaPin,
 		bool optional = false,
-		PinInterface* intPin = nullptr,
 		int extraParam = 0
 	) {
-		uint8_t i2cAddress = imuAddress.getAddress(ImuType::Address);
+		const uint8_t address = ImuType::Address + addrSuppl;
 		m_Logger.trace(
 			"Building IMU with: id=%d,\n\
-						address=0x%02X, rotation=%f,\n\
-						interface=%s, int=%s, extraParam=%d, optional=%d",
+                                address=0x%02X, rotation=%f,\n\
+                                sclPin=%d, sdaPin=%d, extraParam=%d, optional=%d",
 			sensorID,
-			i2cAddress,
+			address,
 			rotation,
-			sensorInterface,
-			intPin,
+			sclPin,
+			sdaPin,
 			extraParam,
 			optional
 		);
 
 		// Now start detecting and building the IMU
-		std::unique_ptr<::Sensor> sensor;
+		std::unique_ptr<Sensor> sensor;
 
-		// Init I2C bus for each sensor upon startup
-		sensorInterface->init();
-		sensorInterface->swapIn();
+		// Clear and reset I2C bus for each sensor upon startup
+		I2CSCAN::clearBus(sdaPin, sclPin);
+		swapI2C(sclPin, sdaPin);
 
-		if (I2CSCAN::hasDevOnBus(i2cAddress)) {
-			m_Logger
-				.trace("Sensor %d found at address 0x%02X", sensorID + 1, i2cAddress);
+		if (I2CSCAN::hasDevOnBus(address)) {
+			m_Logger.trace("Sensor %d found at address 0x%02X", sensorID + 1, address);
 		} else {
 			if (!optional) {
 				m_Logger.error(
 					"Mandatory sensor %d not found at address 0x%02X",
 					sensorID + 1,
-					i2cAddress
+					address
 				);
 				sensor = std::make_unique<ErroneousSensor>(sensorID, ImuType::TypeID);
 			} else {
 				m_Logger.debug(
 					"Optional sensor %d not found at address 0x%02X",
 					sensorID + 1,
-					i2cAddress
+					address
 				);
 				sensor = std::make_unique<EmptySensor>(sensorID);
 			}
 			return sensor;
 		}
 
+		uint8_t intPin = extraParam;
 		sensor = std::make_unique<ImuType>(
 			sensorID,
-			i2cAddress,
+			addrSuppl,
 			rotation,
-			sensorInterface,
-			intPin,
-			extraParam
+			sclPin,
+			sdaPin,
+			intPin
 		);
 
 		sensor->motionSetup();
 		return sensor;
 	}
+	uint8_t activeSCL = 0;
+	uint8_t activeSDA = 0;
+	bool running = false;
+	void swapI2C(uint8_t scl, uint8_t sda);
 
 	uint32_t m_LastBundleSentAtMicros = micros();
 };
 }  // namespace Sensors
 }  // namespace SlimeVR
+
+#endif  // SLIMEVR_SENSORFACTORY_H_

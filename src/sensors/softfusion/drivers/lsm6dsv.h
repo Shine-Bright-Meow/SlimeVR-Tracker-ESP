@@ -28,22 +28,21 @@
 #include <cstdint>
 
 #include "lsm6ds-common.h"
-#include "vqf.h"
 
 namespace SlimeVR::Sensors::SoftFusion::Drivers {
 
-// Driver uses acceleration range at 8g
+// Driver uses acceleration range at 4g
 // and gyroscope range at 1000dps
-// Gyroscope ODR = 480Hz, accel ODR = 120Hz
+// Gyroscope ODR = 480Hz, accel ODR = 240Hz
 
 template <typename I2CImpl>
 struct LSM6DSV : LSM6DSOutputHandler<I2CImpl> {
 	static constexpr uint8_t Address = 0x6a;
 	static constexpr auto Name = "LSM6DSV";
-	static constexpr auto Type = SensorTypeID::LSM6DSV;
+	static constexpr auto Type = ImuID::LSM6DSV;
 
 	static constexpr float GyrFreq = 480;
-	static constexpr float AccFreq = 120;
+	static constexpr float AccFreq = 240;
 	static constexpr float MagFreq = 120;
 	static constexpr float TempFreq = 60;
 
@@ -53,13 +52,20 @@ struct LSM6DSV : LSM6DSOutputHandler<I2CImpl> {
 	static constexpr float TempTs = 1.0 / TempFreq;
 
 	static constexpr float GyroSensitivity = 1000 / 35.0f;
-	static constexpr float AccelSensitivity = 1000 / 0.244f;
+	static constexpr float AccelSensitivity = 1000 / 0.122f;
 
 	static constexpr float TemperatureBias = 25.0f;
 	static constexpr float TemperatureSensitivity = 256.0f;
 
+	// Temperature stability constant - how many degrees of temperature for the bias to
+	// change by 0.01 Though I don't know if it should be 0.1 or 0.01, this is a guess
+	// and seems to work better than 0.1
 	static constexpr float TemperatureZROChange = 16.667f;
 
+	// VQF parameters
+	// biasSigmaInit and and restThGyr should be the sensor's typical gyro bias
+	// biasClip should be 2x the sensor's typical gyro bias
+	// restThAcc should be the sensor's typical acceleration bias
 	static constexpr VQFParams SensorVQFParams{
 		.motionBiasEstEnabled = true,
 		.biasSigmaInit = 1.0f,
@@ -75,13 +81,14 @@ struct LSM6DSV : LSM6DSOutputHandler<I2CImpl> {
 			static constexpr uint8_t reg = 0x0f;
 			static constexpr uint8_t value = 0x70;
 		};
+		static constexpr uint8_t OutTemp = 0x20;
 		struct HAODRCFG {
 			static constexpr uint8_t reg = 0x62;
 			static constexpr uint8_t value = (0b00);  // 1st ODR table
 		};
 		struct Ctrl1XLODR {
 			static constexpr uint8_t reg = 0x10;
-			static constexpr uint8_t value = (0b0010110);  // 120Hz, HAODR
+			static constexpr uint8_t value = (0b0010111);  // 240Hz, HAODR
 		};
 		struct Ctrl2GODR {
 			static constexpr uint8_t reg = 0x11;
@@ -99,12 +106,12 @@ struct LSM6DSV : LSM6DSOutputHandler<I2CImpl> {
 		};
 		struct Ctrl8XLFS {
 			static constexpr uint8_t reg = 0x17;
-			static constexpr uint8_t value = (0b10);  // 8g
+			static constexpr uint8_t value = (0b01);  // 4g
 		};
 		struct FifoCtrl3BDR {
 			static constexpr uint8_t reg = 0x09;
-			static constexpr uint8_t value
-				= (0b1000) | (0b1000 << 4);  // gyro and accel batched at 480Hz
+			static constexpr uint8_t value = (0b10000111
+			);  // gyro and accel batched at 480Hz and 240Hz respectively
 		};
 		struct FifoCtrl4Mode {
 			static constexpr uint8_t reg = 0x0a;
@@ -134,17 +141,17 @@ struct LSM6DSV : LSM6DSOutputHandler<I2CImpl> {
 		return true;
 	}
 
-	template <typename AccelCall, typename GyroCall, typename TempCall>
+	template <typename AccelCall, typename GyroCall, typename TemperatureCall>
 	void bulkRead(
 		AccelCall&& processAccelSample,
 		GyroCall&& processGyroSample,
-		TempCall&& processTempSample
+		TemperatureCall&& processTemperatureSample
 	) {
 		LSM6DSOutputHandler<I2CImpl>::
-			template bulkRead<AccelCall, GyroCall, TempCall, Regs>(
+			template bulkRead<AccelCall, GyroCall, TemperatureCall, Regs>(
 				processAccelSample,
 				processGyroSample,
-				processTempSample,
+				processTemperatureSample,
 				GyrTs,
 				AccTs,
 				TempTs

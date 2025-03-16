@@ -31,7 +31,7 @@
 
 namespace SlimeVR::Sensors::SoftFusion::Drivers {
 
-// Driver uses acceleration range at 8g
+// Driver uses acceleration range at 4g
 // and gyroscope range at 1000dps
 // Gyroscope ODR = 416Hz, accel ODR = 104Hz
 
@@ -39,7 +39,7 @@ template <typename I2CImpl>
 struct LSM6DSR : LSM6DSOutputHandler<I2CImpl> {
 	static constexpr uint8_t Address = 0x6a;
 	static constexpr auto Name = "LSM6DSR";
-	static constexpr auto Type = SensorTypeID::LSM6DSR;
+	static constexpr auto Type = ImuID::LSM6DSR;
 
 	static constexpr float GyrFreq = 416;
 	static constexpr float AccFreq = 104;
@@ -52,13 +52,20 @@ struct LSM6DSR : LSM6DSOutputHandler<I2CImpl> {
 	static constexpr float TempTs = 1.0 / TempFreq;
 
 	static constexpr float GyroSensitivity = 1000 / 35.0f;
-	static constexpr float AccelSensitivity = 1000 / 0.244f;
+	static constexpr float AccelSensitivity = 1000 / 0.122f;
 
 	static constexpr float TemperatureBias = 25.0f;
 	static constexpr float TemperatureSensitivity = 256.0f;
 
+	// Temperature stability constant - how many degrees of temperature for the bias to
+	// change by 0.01 Though I don't know if it should be 0.1 or 0.01, this is a guess
+	// and seems to work better than 0.1
 	static constexpr float TemperatureZROChange = 20.0f;
 
+	// VQF parameters
+	// biasSigmaInit and and restThGyr should be the sensor's typical gyro bias
+	// biasClip should be 2x the sensor's typical gyro bias
+	// restThAcc should be the sensor's typical acceleration bias
 	static constexpr VQFParams SensorVQFParams{
 		.motionBiasEstEnabled = true,
 		.biasSigmaInit = 1.0f,
@@ -74,9 +81,10 @@ struct LSM6DSR : LSM6DSOutputHandler<I2CImpl> {
 			static constexpr uint8_t reg = 0x0f;
 			static constexpr uint8_t value = 0x6b;
 		};
+		static constexpr uint8_t OutTemp = 0x20;
 		struct Ctrl1XL {
 			static constexpr uint8_t reg = 0x10;
-			static constexpr uint8_t value = (0b01001100);  // XL at 104 Hz, 8g FS
+			static constexpr uint8_t value = (0b01001000);  // XL at 104 Hz, 4g FS
 		};
 		struct Ctrl2GY {
 			static constexpr uint8_t reg = 0x11;
@@ -118,17 +126,17 @@ struct LSM6DSR : LSM6DSOutputHandler<I2CImpl> {
 		return true;
 	}
 
-	template <typename AccelCall, typename GyroCall, typename TempCall>
+	template <typename AccelCall, typename GyroCall, typename TemperatureCall>
 	void bulkRead(
 		AccelCall&& processAccelSample,
 		GyroCall&& processGyroSample,
-		TempCall&& processTempSample
+		TemperatureCall&& processTemperatureSample
 	) {
 		LSM6DSOutputHandler<I2CImpl>::
-			template bulkRead<AccelCall, GyroCall, TempCall, Regs>(
+			template bulkRead<AccelCall, GyroCall, TemperatureCall, Regs>(
 				processAccelSample,
 				processGyroSample,
-				processTempSample,
+				processTemperatureSample,
 				GyrTs,
 				AccTs,
 				TempTs

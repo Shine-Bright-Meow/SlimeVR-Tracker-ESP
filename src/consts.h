@@ -25,8 +25,7 @@
 
 // List of constants used in other places
 
-#include <cstdint>
-enum class SensorTypeID : uint8_t {
+enum class ImuID {
 	Unknown = 0,
 	MPU9250,
 	MPU6500,
@@ -43,9 +42,9 @@ enum class SensorTypeID : uint8_t {
 	LSM6DSV,
 	LSM6DSO,
 	LSM6DSR,
+	LSM6DS3,
 	ICM45686,
 	ICM45605,
-	ADC_RESISTANCE,
 	Empty = 255
 };
 
@@ -66,6 +65,7 @@ enum class SensorTypeID : uint8_t {
 #define IMU_LSM6DSO SoftFusionLSM6DSO
 #define IMU_LSM6DSR SoftFusionLSM6DSR
 #define IMU_MPU6050_SF SoftFusionMPU6050
+#define IMU_LSM6DS3 SoftFusionLSM6DS3
 #define IMU_ICM45686 SoftFusionICM45686
 #define IMU_ICM45605 SoftFusionICM45605
 
@@ -90,8 +90,6 @@ enum class SensorTypeID : uint8_t {
 #define BOARD_WEMOSWROOM02 16
 #define BOARD_XIAO_ESP32C3 17
 #define BOARD_HARITORA 18  // Used by Haritora/SlimeTora
-#define BOARD_ES32C6DEVKITC1 19
-#define BOARD_GLOVE_IMU_SLIMEVR_DEV 20  // IMU Glove
 #define BOARD_DEV_RESERVED 250  // Reserved, should not be used in any release firmware
 
 #define BAT_EXTERNAL 1
@@ -150,18 +148,6 @@ enum class SensorTypeID : uint8_t {
 #define MCU_HARITORA 8  // Used by Haritora/SlimeTora
 #define MCU_DEV_RESERVED 250  // Reserved, should not be used in any release firmware
 
-enum class SensorDataType {
-	SENSOR_DATATYPE_ROTATION = 0,
-	SENSOR_DATATYPE_FLEX_RESISTANCE,
-	SENSOR_DATATYPE_FLEX_ANGLE
-};
-
-enum class TrackerType {
-	TRACKER_TYPE_SVR_ROTATION = 0,
-	TRACKER_TYPE_SVR_GLOVE_LEFT,
-	TRACKER_TYPE_SVR_GLOVE_RIGHT
-};
-
 #ifdef ESP8266
 #define HARDWARE_MCU MCU_ESP8266
 #elif defined(ESP32)
@@ -171,7 +157,5 @@ enum class TrackerType {
 #endif
 
 #define CURRENT_CONFIGURATION_VERSION 1
-
-#include "sensors/sensorposition.h"
 
 #endif  // SLIMEVR_CONSTS_H_

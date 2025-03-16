@@ -28,14 +28,9 @@
 #include <quat.h>
 #include <vector3.h>
 
-#include <memory>
-
-#include "PinInterface.h"
 #include "configuration/Configuration.h"
 #include "globals.h"
 #include "logging/Logger.h"
-#include "sensorinterface/SensorInterface.h"
-#include "status/TPSCounter.h"
 #include "utils.h"
 
 #define DATA_TYPE_NORMAL 1
@@ -57,68 +52,55 @@ class Sensor {
 public:
 	Sensor(
 		const char* sensorName,
-		SensorTypeID type,
+		ImuID type,
 		uint8_t id,
 		uint8_t address,
 		float rotation,
-		SlimeVR::SensorInterface* sensorInterface = nullptr
+		uint8_t sclpin = 0,
+		uint8_t sdapin = 0
 	)
-		: m_hwInterface(sensorInterface)
-		, addr(address)
+		: addr(address)
 		, sensorId(id)
 		, sensorType(type)
 		, sensorOffset({Quat(Vector3(0, 0, 1), rotation)})
-		, m_Logger(SlimeVR::Logging::Logger(sensorName)) {
+		, m_Logger(SlimeVR::Logging::Logger(sensorName))
+		, sclPin(sclpin)
+		, sdaPin(sdapin) {
 		char buf[4];
 		sprintf(buf, "%u", id);
 		m_Logger.setTag(buf);
 	}
 
 	virtual ~Sensor(){};
-	virtual void motionSetup(){};
-	virtual void postSetup(){};
-	virtual void motionLoop(){};
+	virtual void motionSetup() {};
+	virtual void postSetup() {};
+	virtual void motionLoop() {};
 	virtual void sendData();
 	virtual void setAcceleration(Vector3 a);
 	virtual void setFusedRotation(Quat r);
-	virtual void startCalibration(int calibrationType){};
+	virtual void startCalibration(int calibrationType) {};
 	virtual SensorStatus getSensorState();
 	virtual void printTemperatureCalibrationState();
 	virtual void printDebugTemperatureCalibrationState();
 	virtual void resetTemperatureCalibrationState();
 	virtual void saveTemperatureCalibration();
-	virtual void setFlag(uint16_t flagId, bool state){};
+	virtual void setFlag(uint16_t flagId, bool state) {};
 	virtual uint16_t getSensorConfigData();
 	bool isWorking() { return working; };
 	bool getHadData() const { return hadData; };
-	bool isValid() { return m_hwInterface != nullptr; };
+	bool isValid() { return sclPin != sdaPin; };
 	bool isMagEnabled() { return magStatus == MagnetometerStatus::MAG_ENABLED; };
 	uint8_t getSensorId() { return sensorId; };
-	SensorTypeID getSensorType() { return sensorType; };
+	ImuID getSensorType() { return sensorType; };
 	MagnetometerStatus getMagStatus() { return magStatus; };
 	const Vector3& getAcceleration() { return acceleration; };
 	const Quat& getFusedRotation() { return fusedRotation; };
 	bool hasNewDataToSend() { return newFusedRotation || newAcceleration; };
-	inline bool hasCompletedRestCalibration() { return restCalibrationComplete; }
-
-	virtual SensorDataType getDataType() {
-		return SensorDataType::SENSOR_DATATYPE_ROTATION;
-	};
-
-	SensorPosition getSensorPosition() { return m_SensorPosition; };
-
-	void setSensorInfo(SensorPosition sensorPosition) {
-		m_SensorPosition = sensorPosition;
-	};
-
-	TPSCounter m_tpsCounter;
-	TPSCounter m_dataCounter;
-	SlimeVR::SensorInterface* m_hwInterface = nullptr;
 
 protected:
 	uint8_t addr = 0;
 	uint8_t sensorId = 0;
-	SensorTypeID sensorType = SensorTypeID::Unknown;
+	ImuID sensorType = ImuID::Unknown;
 	bool working = false;
 	bool hadData = false;
 	uint8_t calibrationAccuracy = 0;
@@ -132,18 +114,16 @@ protected:
 	bool newAcceleration = false;
 	Vector3 acceleration{};
 
-	SensorPosition m_SensorPosition = SensorPosition::POSITION_NO;
-
-	void markRestCalibrationComplete(bool completed = true);
-
 	mutable SlimeVR::Logging::Logger m_Logger;
+
+public:
+	uint8_t sclPin = 0;
+	uint8_t sdaPin = 0;
 
 private:
 	void printTemperatureCalibrationUnsupported();
-
-	bool restCalibrationComplete = false;
 };
 
-const char* getIMUNameByType(SensorTypeID imuType);
+const char* getIMUNameByType(ImuID imuType);
 
 #endif  // SLIMEVR_SENSOR_H_

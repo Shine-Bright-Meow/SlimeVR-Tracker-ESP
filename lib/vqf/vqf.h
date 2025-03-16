@@ -22,10 +22,6 @@
  * change this type to `float`. Note that the Butterworth filter implementation will always use double precision as
  * using floats can cause numeric issues.
  */
-
- // Sample rate divider for MBE
-int mbeDivider;
-
 #ifndef VQF_SINGLE_PRECISION
 typedef double vqf_real_t;
 #else
@@ -46,6 +42,11 @@ typedef float vqf_real_t;
 struct VQFParams
 {
     /**
+     * @brief Constructor that initializes the struct with the default parameters.
+     */
+    VQFParams();
+
+    /**
      * @brief Time constant \f$\tau_\mathrm{acc}\f$ for accelerometer low-pass filtering in seconds.
      *
      * Small values for \f$\tau_\mathrm{acc}\f$ imply trust on the accelerometer measurements and while large values of
@@ -56,7 +57,7 @@ struct VQFParams
      *
      * Default value: 3.0 s
      */
-    vqf_real_t tauAcc = 3.0;
+    vqf_real_t tauAcc;
     /**
      * @brief Time constant \f$\tau_\mathrm{mag}\f$ for magnetometer update in seconds.
      *
@@ -69,7 +70,7 @@ struct VQFParams
      *
      * Default value: 9.0 s
      */
-    vqf_real_t tauMag = 9.0;
+    vqf_real_t tauMag;
 
 #ifndef VQF_NO_MOTION_BIAS_ESTIMATION
     /**
@@ -78,7 +79,7 @@ struct VQFParams
      * If set to true (default), gyroscope bias is estimated based on the inclination correction only, i.e. without
      * using magnetometer measurements.
      */
-    bool motionBiasEstEnabled = true;
+    bool motionBiasEstEnabled;
 #endif
     /**
      * @brief Enables rest detection and gyroscope bias estimation during rest phases.
@@ -86,7 +87,7 @@ struct VQFParams
      * If set to true (default), phases in which the IMU is at rest are detected. During rest, the gyroscope bias
      * is estimated from the low-pass filtered gyroscope readings.
      */
-    bool restBiasEstEnabled = true;
+    bool restBiasEstEnabled;
     /**
      * @brief Enables magnetic disturbance detection and magnetic disturbance rejection.
      *
@@ -95,14 +96,14 @@ struct VQFParams
      * the disturbances exceeds #magMaxRejectionTime, magnetometer-based updates are performed, but with an increased
      * time constant.
      */
-    bool magDistRejectionEnabled = true;
+    bool magDistRejectionEnabled;
 
     /**
      * @brief Standard deviation of the initial bias estimation uncertainty (in degrees per second).
      *
      * Default value: 0.5 °/s
      */
-    vqf_real_t biasSigmaInit = 0.5;
+    vqf_real_t biasSigmaInit;
     /**
      * @brief Time in which the bias estimation uncertainty increases from 0 °/s to 0.1 °/s (in seconds).
      *
@@ -110,7 +111,7 @@ struct VQFParams
      *
      * Default value: 100.0 s
      */
-    vqf_real_t biasForgettingTime = 100.0;
+    vqf_real_t biasForgettingTime;
     /**
      * @brief Maximum expected gyroscope bias (in degrees per second).
      *
@@ -120,7 +121,7 @@ struct VQFParams
      *
      * Default value: 2.0 °/s
      */
-    vqf_real_t biasClip = 2.0;
+    vqf_real_t biasClip;
 #ifndef VQF_NO_MOTION_BIAS_ESTIMATION
     /**
      * @brief Standard deviation of the converged bias estimation uncertainty during motion (in degrees per second).
@@ -129,7 +130,7 @@ struct VQFParams
      *
      * Default value: 0.1 °/s
      */
-    vqf_real_t biasSigmaMotion = 0.1125;
+    vqf_real_t biasSigmaMotion;
     /**
      * @brief Forgetting factor for unobservable bias in vertical direction during motion.
      *
@@ -139,7 +140,7 @@ struct VQFParams
      *
      * Default value: 0.0001
      */
-    vqf_real_t biasVerticalForgettingFactor = 0;
+    vqf_real_t biasVerticalForgettingFactor;
 #endif
     /**
      * @brief Standard deviation of the converged bias estimation uncertainty during rest (in degrees per second).
@@ -148,7 +149,7 @@ struct VQFParams
      *
      * Default value: 0.03 °
      */
-    vqf_real_t biasSigmaRest = 0.03;
+    vqf_real_t biasSigmaRest;
 
     /**
      * @brief Time threshold for rest detection (in seconds).
@@ -157,7 +158,7 @@ struct VQFParams
      *
      * Default value: 1.5 s
      */
-    vqf_real_t restMinT = 0.5;
+    vqf_real_t restMinT;
     /**
      * @brief Time constant for the low-pass filter used in rest detection (in seconds).
      *
@@ -166,7 +167,7 @@ struct VQFParams
      *
      * Default value: 0.5 s
      */
-    vqf_real_t restFilterTau = 0.5;
+    vqf_real_t restFilterTau;
     /**
      * @brief Angular velocity threshold for rest detection (in °/s).
      *
@@ -175,7 +176,7 @@ struct VQFParams
      *
      * Default value: 2.0 °/s
      */
-    vqf_real_t restThGyr = 2.0;
+    vqf_real_t restThGyr;
     /**
      * @brief Acceleration threshold for rest detection (in m/s²).
      *
@@ -184,7 +185,7 @@ struct VQFParams
      *
      * Default value: 0.5 m/s²
      */
-    vqf_real_t restThAcc = 0.5;
+    vqf_real_t restThAcc;
 
     /**
      * @brief Time constant for current norm/dip value in magnetic disturbance detection (in seconds).
@@ -195,7 +196,7 @@ struct VQFParams
      *
      * Default value: 0.05 s
      */
-    vqf_real_t magCurrentTau = 0.05;
+    vqf_real_t magCurrentTau;
     /**
      * @brief Time constant for the adjustment of the magnetic field reference (in seconds).
      *
@@ -203,7 +204,7 @@ struct VQFParams
      *
      * Default value: 20.0 s
      */
-    vqf_real_t magRefTau = 20.0;
+    vqf_real_t magRefTau;
     /**
      * @brief Relative threshold for the magnetic field strength for magnetic disturbance detection.
      *
@@ -211,13 +212,13 @@ struct VQFParams
      *
      * Default value: 0.1 (10%)
      */
-    vqf_real_t magNormTh = 0.1;
+    vqf_real_t magNormTh;
     /**
      * @brief Threshold for the magnetic field dip angle for magnetic disturbance detection (in degrees).
      *
      * Default vaule: 10 °
      */
-    vqf_real_t magDipTh = 10.0;
+    vqf_real_t magDipTh;
     /**
      * @brief Duration after which to accept a different homogeneous magnetic field (in seconds).
      *
@@ -227,7 +228,7 @@ struct VQFParams
      *
      * Default value: 20.0
      */
-    vqf_real_t magNewTime = 20.0;
+    vqf_real_t magNewTime;
     /**
      * @brief Duration after which to accept a homogeneous magnetic field for the first time (in seconds).
      *
@@ -236,7 +237,7 @@ struct VQFParams
      *
      * Default value: 5.0
      */
-    vqf_real_t magNewFirstTime = 5.0;
+    vqf_real_t magNewFirstTime;
     /**
      * @brief Minimum angular velocity needed in order to count time for new magnetic field acceptance (in °/s).
      *
@@ -244,13 +245,13 @@ struct VQFParams
      *
      * Default value: 20.0 °/s
      */
-    vqf_real_t magNewMinGyr = 20.0;
+    vqf_real_t magNewMinGyr;
     /**
      * @brief Minimum duration within thresholds after which to regard the field as undisturbed again (in seconds).
      *
      * Default value: 0.5 s
      */
-    vqf_real_t magMinUndisturbedTime = 0.5;
+    vqf_real_t magMinUndisturbedTime;
     /**
      * @brief Maximum duration of full magnetic disturbance rejection (in seconds).
      *
@@ -261,7 +262,7 @@ struct VQFParams
      *
      * Default value: 60.0 s
      */
-    vqf_real_t magMaxRejectionTime = 60.0;
+    vqf_real_t magMaxRejectionTime;
     /**
      * @brief Factor by which to slow the heading correction during long disturbed phases.
      *
@@ -273,7 +274,10 @@ struct VQFParams
      *
      * Default value: 2.0
      */
-    vqf_real_t magRejectionFactor = 2.0;
+    vqf_real_t magRejectionFactor;
+
+    // Sample rate divider for MBE
+    int mbeDivider;
 };
 
 /**
@@ -382,7 +386,7 @@ struct VQFState {
      */
     double motionBiasEstBiasLpState[2*2];
 
-	int mbeCounter;
+    int mbeCounter;
 #endif
     /**
      * @brief Last (squared) deviations from the reference of the last sample used in rest detection.
@@ -477,13 +481,13 @@ struct VQFState {
  */
 struct VQFCoefficients
 {
+#ifndef VQF_NO_MOTION_BIAS_ESTIMATION
+    // A copy of acc filter, but running at the MBE the sample rate
+    vqf_real_t mbeAccTs;
+    double mbeAccLpB[3];
+    double mbeAccLpA[3];
+#endif
 
-	#ifndef VQF_NO_MOTION_BIAS_ESTIMATION
-		// A copy of acc filter, but running at the MBE the sample rate
-		vqf_real_t mbeAccTs;
-		double mbeAccLpB[3];
-		double mbeAccLpA[3];
-	#endif
     /**
      * @brief Sampling time of the gyroscope measurements (in seconds).
      */
@@ -994,8 +998,6 @@ public:
      */
     static bool matrix3Inv(const vqf_real_t in[9], vqf_real_t out[9]);
 #endif
-
-	void updateBiasForgettingTime(float biasForgettingTime);
 
 protected:
     /**

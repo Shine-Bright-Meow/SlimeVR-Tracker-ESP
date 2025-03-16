@@ -18,6 +18,41 @@
 
 inline vqf_real_t square(vqf_real_t x) { return x*x; }
 
+
+VQFParams::VQFParams()
+    : tauAcc(3.0)
+    , tauMag(9.0)
+#ifndef VQF_NO_MOTION_BIAS_ESTIMATION
+    , motionBiasEstEnabled(true)
+#endif
+    , restBiasEstEnabled(true)
+    , magDistRejectionEnabled(true)
+    , biasSigmaInit(0.5)
+    , biasForgettingTime(100.0)
+    , biasClip(2.0)
+#ifndef VQF_NO_MOTION_BIAS_ESTIMATION
+    , biasSigmaMotion(0.1)
+    , biasVerticalForgettingFactor(0.0001)
+#endif
+    , biasSigmaRest(0.03)
+    , restMinT(1.5)
+    , restFilterTau(0.5)
+    , restThGyr(2.0)
+    , restThAcc(0.5)
+    , magCurrentTau(0.05)
+    , magRefTau(20.0)
+    , magNormTh(0.1)
+    , magDipTh(10.0)
+    , magNewTime(20.0)
+    , magNewFirstTime(5.0)
+    , magNewMinGyr(20.0)
+    , magMinUndisturbedTime(0.5)
+    , magMaxRejectionTime(60.0)
+    , magRejectionFactor(2.0)
+{
+
+}
+
 VQF::VQF(vqf_real_t gyrTs, vqf_real_t accTs, vqf_real_t magTs)
 {
     coeffs.gyrTs = gyrTs;
@@ -132,7 +167,6 @@ void VQF::updateAcc(const vqf_real_t acc[3])
 #ifndef VQF_NO_MOTION_BIAS_ESTIMATION
     state.mbeCounter--;
     if ((params.motionBiasEstEnabled || params.restBiasEstEnabled) && (state.mbeCounter <= 0)) {
-
         state.mbeCounter = params.mbeDivider;
         vqf_real_t biasClip = params.biasClip*vqf_real_t(M_PI/180.0);
 
@@ -140,7 +174,7 @@ void VQF::updateAcc(const vqf_real_t acc[3])
         vqf_real_t R[9];
         vqf_real_t biasLp[2];
 
-		vqf_real_t accTs = coeffs.accTs * params.mbeDivider;
+        vqf_real_t accTs = coeffs.accTs * params.mbeDivider;
 
         // get rotation matrix corresponding to accGyrQuat
         getQuat6D(accGyrQuat);
@@ -160,7 +194,8 @@ void VQF::updateAcc(const vqf_real_t acc[3])
 
         // low-pass filter R and R*b_hat
         filterVec(R, 9, params.tauAcc, accTs, coeffs.mbeAccLpB, coeffs.mbeAccLpA, state.motionBiasEstRLpState, R);
-        filterVec(biasLp, 2, params.tauAcc, accTs, coeffs.mbeAccLpB, coeffs.mbeAccLpA, state.motionBiasEstBiasLpState, biasLp);
+        filterVec(biasLp, 2, params.tauAcc, accTs, coeffs.mbeAccLpB, coeffs.mbeAccLpA, state.motionBiasEstBiasLpState,
+                  biasLp);
 
         // set measurement error and covariance for the respective Kalman filter update
         vqf_real_t w[3];
@@ -398,10 +433,6 @@ vqf_real_t VQF::getBiasEstimate(vqf_real_t out[3]) const
         std::copy(state.bias, state.bias+3, out);
     }
 #ifndef VQF_NO_MOTION_BIAS_ESTIMATION
-    double newB_mbe[3];
-    double newA_mbe[3];
-    filterCoeffs(params.tauAcc, coeffs.accTs * params.mbeDivider, newB_mbe, newA_mbe);
-
     // use largest absolute row sum as upper bound estimate for largest eigenvalue (Gershgorin circle theorem)
     // and clip output to biasSigmaInit
     vqf_real_t sum1 = fabs(state.biasP[0]) + fabs(state.biasP[1]) + fabs(state.biasP[2]);
@@ -469,7 +500,6 @@ void VQF::setMotionBiasEstEnabled(bool enabled)
     params.motionBiasEstEnabled = enabled;
     std::fill(state.motionBiasEstRLpState, state.motionBiasEstRLpState + 9*2, NaN);
     std::fill(state.motionBiasEstBiasLpState, state.motionBiasEstBiasLpState + 2*2, NaN);
-	state.mbeCounter = 0;
 }
 #endif
 
@@ -518,6 +548,10 @@ void VQF::setTauAcc(vqf_real_t tauAcc)
     filterAdaptStateForCoeffChange(state.lastAccLp, 3, coeffs.accLpB, coeffs.accLpA, newB, newA, state.accLpState);
 
 #ifndef VQF_NO_MOTION_BIAS_ESTIMATION
+    double newB_mbe[3];
+    double newA_mbe[3];
+    filterCoeffs(params.tauAcc, coeffs.accTs * params.mbeDivider, newB_mbe, newA_mbe);
+
     // For R and biasLP, the last value is not saved in the state.
     // Since b0 is small (at reasonable settings), the last output is close to state[0].
     vqf_real_t R[9];
@@ -598,6 +632,7 @@ void VQF::resetState()
 #ifndef VQF_NO_MOTION_BIAS_ESTIMATION
     std::fill(state.motionBiasEstRLpState, state.motionBiasEstRLpState + 9*2, NaN);
     std::fill(state.motionBiasEstBiasLpState, state.motionBiasEstBiasLpState + 2*2, NaN);
+    state.mbeCounter = 0;
 #endif
 
     std::fill(state.restLastSquaredDeviations, state.restLastSquaredDeviations + 3, 0.0);
@@ -888,17 +923,25 @@ void VQF::setup()
     assert(coeffs.accTs > 0);
     assert(coeffs.magTs > 0);
 
-	auto mbeAccTs = coeffs.accTs * params.mbeDivider;
+    auto mbeAccTs = coeffs.accTs * params.mbeDivider;
 
     filterCoeffs(params.tauAcc, coeffs.accTs, coeffs.accLpB, coeffs.accLpA);
-	filterCoeffs(params.tauAcc, coeffs.accTs * params.mbeDivider, coeffs.mbeAccLpB, coeffs.mbeAccLpA);
+    filterCoeffs(params.tauAcc, mbeAccTs, coeffs.mbeAccLpB, coeffs.mbeAccLpA);
 
     coeffs.kMag = gainFromTau(params.tauMag, coeffs.magTs);
 
     coeffs.biasP0 = square(params.biasSigmaInit*100.0);
     // the system noise increases the variance from 0 to (0.1 °/s)^2 in biasForgettingTime seconds
+    coeffs.biasV = square(0.1*100.0)*mbeAccTs/params.biasForgettingTime;
 
-	updateBiasForgettingTime(params.biasForgettingTime);
+#ifndef VQF_NO_MOTION_BIAS_ESTIMATION
+    vqf_real_t pMotion = square(params.biasSigmaMotion*100.0);
+    coeffs.biasMotionW = square(pMotion) / coeffs.biasV + pMotion;
+    coeffs.biasVerticalW = coeffs.biasMotionW / std::max(params.biasVerticalForgettingFactor, vqf_real_t(1e-10));
+#endif
+
+    vqf_real_t pRest = square(params.biasSigmaRest*100.0);
+    coeffs.biasRestW = square(pRest) / coeffs.biasV + pRest;
 
     filterCoeffs(params.restFilterTau, coeffs.gyrTs, coeffs.restGyrLpB, coeffs.restGyrLpA);
     filterCoeffs(params.restFilterTau, coeffs.accTs, coeffs.restAccLpB, coeffs.restAccLpA);
@@ -912,17 +955,4 @@ void VQF::setup()
     }
 
     resetState();
-}
-
-void VQF::updateBiasForgettingTime(float biasForgettingTime) {
-    coeffs.biasV = square(0.1*100.0)*mbeAccTs/params.biasForgettingTime;
-
-#ifndef VQF_NO_MOTION_BIAS_ESTIMATION
-    vqf_real_t pMotion = square(params.biasSigmaMotion*100.0);
-    coeffs.biasMotionW = square(pMotion) / coeffs.biasV + pMotion;
-    coeffs.biasVerticalW = coeffs.biasMotionW / std::max(params.biasVerticalForgettingFactor, vqf_real_t(1e-10));
-#endif
-
-    vqf_real_t pRest = square(params.biasSigmaRest*100.0);
-    coeffs.biasRestW = square(pRest) / coeffs.biasV + pRest;
 }

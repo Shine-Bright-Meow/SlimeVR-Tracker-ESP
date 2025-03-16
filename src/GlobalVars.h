@@ -27,7 +27,6 @@
 #include <arduino-timer.h>
 
 #include "LEDManager.h"
-#include "batterymonitor.h"
 #include "configuration/Configuration.h"
 #include "network/connection.h"
 #include "network/manager.h"
@@ -41,6 +40,5 @@ extern SlimeVR::Configuration::Configuration configuration;
 extern SlimeVR::Sensors::SensorManager sensorManager;
 extern SlimeVR::Network::Manager networkManager;
 extern SlimeVR::Network::Connection networkConnection;
-extern BatteryMonitor battery;
 
 #endif

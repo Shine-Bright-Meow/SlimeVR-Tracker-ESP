@@ -23,29 +23,29 @@
 
 #include "LEDManager.h"
 
-#include "../GlobalVars.h"
-#include "Status.h"
+#include "GlobalVars.h"
+#include "status/Status.h"
 
 namespace SlimeVR {
 void LEDManager::setup() {
-	if (m_Enabled) {
-		pinMode(m_Pin, OUTPUT);
-	}
+#if ENABLE_LEDS
+	pinMode(m_Pin, OUTPUT);
+#endif
 
 	// Do the initial pull of the state
 	update();
 }
 
 void LEDManager::on() {
-	if (m_Enabled) {
-		digitalWrite(m_Pin, m_On);
-	}
+#if ENABLE_LEDS
+	digitalWrite(m_Pin, LED__ON);
+#endif
 }
 
 void LEDManager::off() {
-	if (m_Enabled) {
-		digitalWrite(m_Pin, m_Off);
-	}
+#if ENABLE_LEDS
+	digitalWrite(m_Pin, LED__OFF);
+#endif
 }
 
 void LEDManager::blink(unsigned long time) {

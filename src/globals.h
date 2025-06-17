@@ -20,17 +20,16 @@
 	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 	THE SOFTWARE.
 */
-#pragma once
+#ifndef SLIMEVR_GLOBALS_H_
+#define SLIMEVR_GLOBALS_H_
 
 #include <Arduino.h>
 
 #include "consts.h"
 #include "debug.h"
 #include "defines.h"
-
-// clang-format off
-#include "boards/boards_default.h"
-// clang-format on
+#include "defines_bmi160.h"
+#include "defines_sensitivity.h"
 
 #ifndef SECOND_IMU
 #define SECOND_IMU IMU
@@ -44,11 +43,37 @@
 #define BATTERY_MONITOR BAT_INTERNAL
 #endif
 
-#ifndef SENSOR_INFO_LIST
-#define SENSOR_INFO_LIST
+// If LED_PIN is not defined in "defines.h" take the default pin from "pins_arduino.h"
+// framework. If there is no pin defined for the board, use LED_PIN 255 and disable LED
+#if defined(LED_PIN)
+// LED_PIN is defined
+#if (LED_PIN < 0) || (LED_PIN >= LED_OFF)
+#define ENABLE_LEDS false
+#else
+#define ENABLE_LEDS true
+#endif
+#else
+// LED_PIN is not defined
+#if defined(LED_BUILTIN) && (LED_BUILTIN < LED_OFF) && (LED_BUILTIN >= 0)
+#define LED_PIN LED_BUILTIN
+#define ENABLE_LEDS true
+#else
+#define LED_PIN LED_OFF
+#define ENABLE_LEDS false
+#endif
 #endif
 
-// Experimental features
-#ifndef EXPERIMENTAL_BNO_DISABLE_ACCEL_CALIBRATION
-#define EXPERIMENTAL_BNO_DISABLE_ACCEL_CALIBRATION true
+#if !defined(LED_INVERTED)
+// default is inverted for SlimeVR / ESP-12E
+#define LED_INVERTED true
 #endif
+
+#if LED_INVERTED
+#define LED__ON LOW
+#define LED__OFF HIGH
+#else
+#define LED__ON HIGH
+#define LED__OFF LOW
+#endif
+
+#endif  // SLIMEVR_GLOBALS_H_

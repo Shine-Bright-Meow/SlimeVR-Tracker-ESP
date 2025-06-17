@@ -33,7 +33,6 @@ SensorStatus Sensor::getSensorState() {
 
 void Sensor::setAcceleration(Vector3 a) {
 	acceleration = a;
-	sensorOffset.sandwich(acceleration);
 	newAcceleration = true;
 }
 
@@ -45,9 +44,6 @@ void Sensor::setFusedRotation(Quat r) {
 	if (ENABLE_INSPECTION || changed) {
 		newFusedRotation = true;
 		lastFusedRotationSent = fusedRotation;
-	}
-	if (changed) {
-		m_dataCounter.update();
 	}
 }
 
@@ -91,61 +87,53 @@ void Sensor::resetTemperatureCalibrationState() {
 	printTemperatureCalibrationUnsupported();
 };
 
-const char* Sensor::getAttachedMagnetometer() const { return nullptr; }
-
-SlimeVR::Configuration::SensorConfigBits Sensor::getSensorConfigData() {
-	return SlimeVR::Configuration::SensorConfigBits{
-		.magEnabled = toggles.getToggle(SensorToggles::MagEnabled),
-		.magSupported = isFlagSupported(SensorToggles::MagEnabled),
-		.calibrationEnabled = toggles.getToggle(SensorToggles::CalibrationEnabled),
-		.calibrationSupported = isFlagSupported(SensorToggles::CalibrationEnabled),
-		.tempGradientCalibrationEnabled
-		= toggles.getToggle(SensorToggles::TempGradientCalibrationEnabled),
-		.tempGradientCalibrationSupported
-		= isFlagSupported(SensorToggles::TempGradientCalibrationEnabled),
-	};
+uint16_t Sensor::getSensorConfigData() {
+	SlimeVR::Configuration::SensorConfig sensorConfig
+		= configuration.getSensor(sensorId);
+	return SlimeVR::Configuration::configDataToNumber(
+		&sensorConfig,
+		magStatus != MagnetometerStatus::MAG_NOT_SUPPORTED
+	);
 }
 
-const char* getIMUNameByType(SensorTypeID imuType) {
+const char* getIMUNameByType(ImuID imuType) {
 	switch (imuType) {
-		case SensorTypeID::MPU9250:
+		case ImuID::MPU9250:
 			return "MPU9250";
-		case SensorTypeID::MPU6500:
+		case ImuID::MPU6500:
 			return "MPU6500";
-		case SensorTypeID::BNO080:
+		case ImuID::BNO080:
 			return "BNO080";
-		case SensorTypeID::BNO085:
+		case ImuID::BNO085:
 			return "BNO085";
-		case SensorTypeID::BNO055:
+		case ImuID::BNO055:
 			return "BNO055";
-		case SensorTypeID::MPU6050:
+		case ImuID::MPU6050:
 			return "MPU6050";
-		case SensorTypeID::BNO086:
+		case ImuID::BNO086:
 			return "BNO086";
-		case SensorTypeID::BMI160:
+		case ImuID::BMI160:
 			return "BMI160";
-		case SensorTypeID::ICM20948:
+		case ImuID::ICM20948:
 			return "ICM20948";
-		case SensorTypeID::ICM42688:
+		case ImuID::ICM42688:
 			return "ICM42688";
-		case SensorTypeID::BMI270:
+		case ImuID::BMI270:
 			return "BMI270";
-		case SensorTypeID::LSM6DS3TRC:
+		case ImuID::LSM6DS3TRC:
 			return "LSM6DS3TRC";
-		case SensorTypeID::LSM6DSV:
+		case ImuID::LSM6DSV:
 			return "LSM6DSV";
-		case SensorTypeID::LSM6DSO:
+		case ImuID::LSM6DSO:
 			return "LSM6DSO";
-		case SensorTypeID::LSM6DSR:
+		case ImuID::LSM6DSR:
 			return "LSM6DSR";
-		case SensorTypeID::ICM45686:
+		case ImuID::ICM45686:
 			return "ICM45686";
-		case SensorTypeID::ICM45605:
+		case ImuID::ICM45605:
 			return "ICM45605";
-		case SensorTypeID::ADC_RESISTANCE:
-			return "ADC Resistance";
-		case SensorTypeID::Unknown:
-		case SensorTypeID::Empty:
+		case ImuID::Unknown:
+		case ImuID::Empty:
 			return "UNKNOWN";
 	}
 	return "Unknown";
@@ -156,19 +144,4 @@ void Sensor::markRestCalibrationComplete(bool completed) {
 		m_Logger.info("Rest calibration completed");
 	}
 	restCalibrationComplete = completed;
-}
-
-void Sensor::setFlag(SensorToggles toggle, bool state) {
-	if (!isFlagSupported(toggle)) {
-		m_Logger.error(
-			"Toggle %s isn't supported by this sensor!",
-			SensorToggleState::toggleToString(toggle)
-		);
-		return;
-	}
-
-	toggles.setToggle(toggle, state);
-
-	configuration.setSensorToggles(sensorId, toggles);
-	configuration.save();
 }

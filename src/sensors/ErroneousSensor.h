@@ -24,14 +24,14 @@
 #ifndef SENSORS_ERRONEOUSSENSOR_H
 #define SENSORS_ERRONEOUSSENSOR_H
 
-#include "../sensorinterface/RegisterInterface.h"
 #include "sensor.h"
 
-namespace SlimeVR::Sensors {
+namespace SlimeVR {
+namespace Sensors {
 class ErroneousSensor : public Sensor {
 public:
-	ErroneousSensor(uint8_t id, SensorTypeID type)
-		: Sensor("ErroneousSensor", type, id, EmptyRegisterInterface::instance, 0.0)
+	ErroneousSensor(uint8_t id, ImuID type)
+		: Sensor("ErroneousSensor", type, id, 0, 0.0)
 		, m_ExpectedType(type){};
 	~ErroneousSensor(){};
 
@@ -42,8 +42,9 @@ public:
 	SensorStatus getSensorState() override final;
 
 private:
-	SensorTypeID m_ExpectedType;
+	ImuID m_ExpectedType;
 };
-}  // namespace SlimeVR::Sensors
+}  // namespace Sensors
+}  // namespace SlimeVR
 
 #endif

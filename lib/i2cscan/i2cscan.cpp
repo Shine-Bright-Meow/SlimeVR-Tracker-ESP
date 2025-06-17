@@ -70,7 +70,7 @@ namespace I2CSCAN
             if (!found) {
                 Serial.println("[ERR] I2C: No I2C devices found");
             }
-#ifdef ESP32
+#if ESP32
             Wire.end();
 #endif
             Wire.begin(static_cast<int>(PIN_IMU_SDA), static_cast<int>(PIN_IMU_SCL));
@@ -89,7 +89,7 @@ namespace I2CSCAN
         }
 
         if (currentAddress == 1) {
-#ifdef ESP32
+#if ESP32
             Wire.end();
 #endif
         }

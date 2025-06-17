@@ -25,33 +25,32 @@
 #define SENSORS_BNO080SENSOR_H
 
 #include <BNO080.h>
-#include <i2cscan.h>
 
 #include "sensor.h"
-#include "sensorinterface/RegisterInterface.h"
 
 #define FLAG_SENSOR_BNO0XX_MAG_ENABLED 1
 
 class BNO080Sensor : public Sensor {
 public:
-	static constexpr auto TypeID = SensorTypeID::BNO080;
+	static constexpr auto TypeID = ImuID::BNO080;
 	static constexpr uint8_t Address = 0x4a;
 
 	BNO080Sensor(
 		uint8_t id,
-		SlimeVR::Sensors::RegisterInterface& registerInterface,
+		uint8_t i2cAddress,
 		float rotation,
-		SlimeVR::SensorInterface* sensorInterface,
-		PinInterface* intPin,
-		int
+		uint8_t sclPin,
+		uint8_t sdaPin,
+		uint8_t intPin
 	)
 		: Sensor(
 			"BNO080Sensor",
-			SensorTypeID::BNO080,
+			ImuID::BNO080,
 			id,
-			registerInterface,
+			i2cAddress,
 			rotation,
-			sensorInterface
+			sclPin,
+			sdaPin
 		)
 		, m_IntPin(intPin){};
 	~BNO080Sensor(){};
@@ -62,35 +61,27 @@ public:
 	void sendData() override final;
 	void startCalibration(int calibrationType) override final;
 	SensorStatus getSensorState() override final;
-	bool isFlagSupported(SensorToggles toggle) const final;
-	void sendTempIfNeeded();
-
-	static SensorTypeID checkPresent(
-		SlimeVR::Sensors::RegisterInterface& registerInterface
-	) {
-		// For BNO, just assume it's there if the sensorOnBus check succeeded
-		return SensorTypeID::BNO085;
-	}
+	void setFlag(uint16_t flagId, bool state) override final;
 
 protected:
 	// forwarding constructor
 	BNO080Sensor(
 		const char* sensorName,
-		SensorTypeID imuId,
+		ImuID imuId,
 		uint8_t id,
-		SlimeVR::Sensors::RegisterInterface& registerInterface,
+		uint8_t i2cAddress,
 		float rotation,
-		SlimeVR::SensorInterface* sensorInterface,
-		PinInterface* intPin,
-		int
+		uint8_t sclPin,
+		uint8_t sdaPin,
+		uint8_t intPin
 	)
-		: Sensor(sensorName, imuId, id, registerInterface, rotation, sensorInterface)
+		: Sensor(sensorName, imuId, id, i2cAddress, rotation, sclPin, sdaPin)
 		, m_IntPin(intPin){};
 
 private:
 	BNO080 imu{};
 
-	PinInterface* m_IntPin;
+	uint8_t m_IntPin;
 
 	uint8_t tap;
 	unsigned long lastData = 0;
@@ -104,56 +95,51 @@ private:
 	float magneticAccuracyEstimate = 999;
 	bool newMagData = false;
 	bool configured = false;
-
-	// Temperature reading
-	float lastReadTemperature = 0;
-	uint32_t lastTempPollTime = micros();
-	uint32_t m_lastTemperaturePacketSent = 0;
 };
 
 class BNO085Sensor : public BNO080Sensor {
 public:
-	static constexpr auto TypeID = SensorTypeID::BNO085;
+	static constexpr auto TypeID = ImuID::BNO085;
 	BNO085Sensor(
 		uint8_t id,
-		SlimeVR::Sensors::RegisterInterface& registerInterface,
+		uint8_t i2cAddress,
 		float rotation,
-		SlimeVR::SensorInterface* sensorInterface,
-		PinInterface* intPin,
-		int extraParam
+		uint8_t sclPin,
+		uint8_t sdaPin,
+		uint8_t intPin
 	)
 		: BNO080Sensor(
 			"BNO085Sensor",
-			SensorTypeID::BNO085,
+			ImuID::BNO085,
 			id,
-			registerInterface,
+			i2cAddress,
 			rotation,
-			sensorInterface,
-			intPin,
-			extraParam
+			sclPin,
+			sdaPin,
+			intPin
 		){};
 };
 
 class BNO086Sensor : public BNO080Sensor {
 public:
-	static constexpr auto TypeID = SensorTypeID::BNO086;
+	static constexpr auto TypeID = ImuID::BNO086;
 	BNO086Sensor(
 		uint8_t id,
-		SlimeVR::Sensors::RegisterInterface& registerInterface,
+		uint8_t i2cAddress,
 		float rotation,
-		SlimeVR::SensorInterface* sensorInterface,
-		PinInterface* intPin,
-		int extraParam
+		uint8_t sclPin,
+		uint8_t sdaPin,
+		uint8_t intPin
 	)
 		: BNO080Sensor(
 			"BNO086Sensor",
-			SensorTypeID::BNO086,
+			ImuID::BNO086,
 			id,
-			registerInterface,
+			i2cAddress,
 			rotation,
-			sensorInterface,
-			intPin,
-			extraParam
+			sclPin,
+			sdaPin,
+			intPin
 		){};
 };
 

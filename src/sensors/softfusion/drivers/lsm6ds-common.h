@@ -27,21 +27,24 @@
 #include <array>
 #include <cstdint>
 
-#include "../../../sensorinterface/RegisterInterface.h"
-#include "callbacks.h"
-
 namespace SlimeVR::Sensors::SoftFusion::Drivers {
 
+template <typename I2CImpl>
 struct LSM6DSOutputHandler {
-	LSM6DSOutputHandler(
-		RegisterInterface& registerInterface,
-		SlimeVR::Logging::Logger& logger
-	)
-		: m_RegisterInterface(registerInterface)
-		, m_Logger(logger) {}
+	LSM6DSOutputHandler(I2CImpl i2c, SlimeVR::Logging::Logger& logger)
+		: i2c(i2c)
+		, logger(logger) {}
 
-	RegisterInterface& m_RegisterInterface;
-	SlimeVR::Logging::Logger& m_Logger;
+	I2CImpl i2c;
+	SlimeVR::Logging::Logger& logger;
+
+	template <typename Regs>
+	float getDirectTemp() const {
+		const auto value = static_cast<int16_t>(i2c.readReg16(Regs::OutTemp));
+		float result = ((float)value / 256.0f) + 25.0f;
+
+		return result;
+	}
 
 #pragma pack(push, 1)
 	struct FifoEntryAligned {
@@ -54,23 +57,22 @@ struct LSM6DSOutputHandler {
 
 	static constexpr size_t FullFifoEntrySize = sizeof(FifoEntryAligned) + 1;
 
-	template <typename Regs>
+	template <typename AccelCall, typename GyroCall, typename Regs>
 	void bulkRead(
-		DriverCallbacks<int16_t>&& callbacks,
+		AccelCall& processAccelSample,
+		GyroCall& processGyroSample,
 		float GyrTs,
-		float AccTs,
-		float TempTs
+		float AccTs
 	) {
 		constexpr auto FIFO_SAMPLES_MASK = 0x3ff;
 		constexpr auto FIFO_OVERRUN_LATCHED_MASK = 0x800;
 
-		const auto fifo_status = m_RegisterInterface.readReg16(Regs::FifoStatus);
+		const auto fifo_status = i2c.readReg16(Regs::FifoStatus);
 		const auto available_axes = fifo_status & FIFO_SAMPLES_MASK;
 		const auto fifo_bytes = available_axes * FullFifoEntrySize;
 		if (fifo_status & FIFO_OVERRUN_LATCHED_MASK) {
 			// FIFO overrun is expected to happen during startup and calibration
-			m_Logger.error(
-				"FIFO OVERRUN! This occuring during normal usage is an issue."
+			logger.error("FIFO OVERRUN! This occuring during normal usage is an issue."
 			);
 		}
 
@@ -80,8 +82,7 @@ struct LSM6DSOutputHandler {
 									   static_cast<size_t>(fifo_bytes)
 								   )
 								 / FullFifoEntrySize * FullFifoEntrySize;
-		m_RegisterInterface
-			.readBytes(Regs::FifoData, bytes_to_read, read_buffer.data());
+		i2c.readBytes(Regs::FifoData, bytes_to_read, read_buffer.data());
 		for (auto i = 0u; i < bytes_to_read; i += FullFifoEntrySize) {
 			FifoEntryAligned entry;
 			uint8_t tag = read_buffer[i] >> 3;
@@ -93,13 +94,10 @@ struct LSM6DSOutputHandler {
 
 			switch (tag) {
 				case 0x01:  // Gyro NC
-					callbacks.processGyroSample(entry.xyz, GyrTs);
+					processGyroSample(entry.xyz, GyrTs);
 					break;
 				case 0x02:  // Accel NC
-					callbacks.processAccelSample(entry.xyz, AccTs);
-					break;
-				case 0x03:  // Temperature
-					callbacks.processTempSample(entry.xyz[0], TempTs);
+					processAccelSample(entry.xyz, AccTs);
 					break;
 			}
 		}

@@ -30,24 +30,25 @@
 
 class BNO055Sensor : public Sensor {
 public:
-	static constexpr auto TypeID = SensorTypeID::BNO055;
+	static constexpr auto TypeID = ImuID::BNO055;
 	static constexpr uint8_t Address = 0x28;
 
 	BNO055Sensor(
 		uint8_t id,
-		SlimeVR::Sensors::RegisterInterface& registerInterface,
+		uint8_t i2cAddress,
 		float rotation,
-		SlimeVR::SensorInterface* sensorInterface,
-		PinInterface*,
+		uint8_t sclPin,
+		uint8_t sdaPin,
 		uint8_t
 	)
 		: Sensor(
 			"BNO055Sensor",
-			SensorTypeID::BNO055,
+			ImuID::BNO055,
 			id,
-			registerInterface,
+			i2cAddress,
 			rotation,
-			sensorInterface
+			sclPin,
+			sdaPin
 		){};
 	~BNO055Sensor(){};
 	void motionSetup() override final;

@@ -1,6 +1,7 @@
 #include "StatusManager.h"
 
-namespace SlimeVR::Status {
+namespace SlimeVR {
+namespace Status {
 void StatusManager::setStatus(Status status, bool value) {
 	if (value) {
 		if (m_Status & status) {
@@ -22,4 +23,5 @@ void StatusManager::setStatus(Status status, bool value) {
 }
 
 bool StatusManager::hasStatus(Status status) { return (m_Status & status) == status; }
-}  // namespace SlimeVR::Status
+}  // namespace Status
+}  // namespace SlimeVR

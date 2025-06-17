@@ -30,24 +30,25 @@
 
 class ICM20948Sensor : public Sensor {
 public:
-	static constexpr auto TypeID = SensorTypeID::ICM20948;
+	static constexpr auto TypeID = ImuID::ICM20948;
 	static constexpr uint8_t Address = 0x68;
 
 	ICM20948Sensor(
 		uint8_t id,
-		SlimeVR::Sensors::RegisterInterface& registerInterface,
+		uint8_t i2cAddress,
 		float rotation,
-		SlimeVR::SensorInterface* sensorInterface,
-		PinInterface*,
+		uint8_t sclPin,
+		uint8_t sdaPin,
 		uint8_t
 	)
 		: Sensor(
 			"ICM20948Sensor",
-			SensorTypeID::ICM20948,
+			ImuID::ICM20948,
 			id,
-			registerInterface,
+			i2cAddress,
 			rotation,
-			sensorInterface
+			sclPin,
+			sdaPin
 		) {}
 	~ICM20948Sensor() override = default;
 	void motionSetup() override final;

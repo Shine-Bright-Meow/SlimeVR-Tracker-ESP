@@ -30,14 +30,40 @@
 #define TIMEOUT 3000UL
 
 template <typename T>
-uint8_t* convert_to_chars(T src, uint8_t* target) {
-	auto* rawBytes = reinterpret_cast<uint8_t*>(&src);
-	std::memcpy(target, rawBytes, sizeof(T));
-	std::reverse(target, target + sizeof(T));
+unsigned char* convert_to_chars(T src, unsigned char* target) {
+	union uwunion {
+		unsigned char c[sizeof(T)];
+		T v;
+	} un;
+	un.v = src;
+	for (size_t i = 0; i < sizeof(T); i++) {
+		target[i] = un.c[sizeof(T) - i - 1];
+	}
 	return target;
 }
 
-namespace SlimeVR::Network {
+template <typename T>
+T convert_chars(unsigned char* const src) {
+	union uwunion {
+		unsigned char c[sizeof(T)];
+		T v;
+	} un;
+	for (size_t i = 0; i < sizeof(T); i++) {
+		un.c[i] = src[sizeof(T) - i - 1];
+	}
+	return un.v;
+}
+
+namespace SlimeVR {
+namespace Network {
+
+#define MUST_TRANSFER_BOOL(b) \
+	if (!b)                   \
+		return false;
+
+#define MUST(b) \
+	if (!b)     \
+		return;
 
 bool Connection::beginPacket() {
 	if (m_IsBundle) {
@@ -65,7 +91,7 @@ bool Connection::endPacket() {
 		m_IsBundle = false;
 
 		if (m_BundlePacketInnerCount == 0) {
-			sendPacketType(SendPacketType::Bundle);
+			sendPacketType(PACKET_BUNDLE);
 			sendPacketNumber();
 		}
 		sendShort(innerPacketSize);
@@ -171,12 +197,12 @@ bool Connection::sendShortString(const char* str) {
 	return true;
 }
 
-bool Connection::sendPacketType(SendPacketType type) {
+bool Connection::sendPacketType(uint8_t type) {
 	MUST_TRANSFER_BOOL(sendByte(0));
 	MUST_TRANSFER_BOOL(sendByte(0));
 	MUST_TRANSFER_BOOL(sendByte(0));
 
-	return sendByte(static_cast<uint8_t>(type));
+	return sendByte(type);
 }
 
 bool Connection::sendLongString(const char* str) {
@@ -192,77 +218,88 @@ int Connection::getWriteError() { return m_UDP.getWriteError(); }
 // PACKET_HEARTBEAT 0
 void Connection::sendHeartbeat() {
 	MUST(m_Connected);
-	MUST(sendPacketCallback(SendPacketType::HeartBeat, []() { return true; }));
+
+	MUST(beginPacket());
+
+	MUST(sendPacketType(PACKET_HEARTBEAT));
+	MUST(sendPacketNumber());
+
+	MUST(endPacket());
 }
 
 // PACKET_ACCEL 4
 void Connection::sendSensorAcceleration(uint8_t sensorId, Vector3 vector) {
 	MUST(m_Connected);
-	MUST(sendPacket(
-		SendPacketType::Accel,
-		AccelPacket{
-			.x = vector.x,
-			.y = vector.y,
-			.z = vector.z,
-			.sensorId = sensorId,
-		}
-	));
+
+	MUST(beginPacket());
+
+	MUST(sendPacketType(PACKET_ACCEL));
+	MUST(sendPacketNumber());
+	MUST(sendFloat(vector.x));
+	MUST(sendFloat(vector.y));
+	MUST(sendFloat(vector.z));
+	MUST(sendByte(sensorId));
+
+	MUST(endPacket());
 }
 
 // PACKET_BATTERY_LEVEL 12
 void Connection::sendBatteryLevel(float batteryVoltage, float batteryPercentage) {
 	MUST(m_Connected);
-	MUST(sendPacket(
-		SendPacketType::BatteryLevel,
-		BatteryLevelPacket{
-			.batteryVoltage = batteryVoltage,
-			.batteryPercentage = batteryPercentage,
-		}
-	));
+
+	MUST(beginPacket());
+
+	MUST(sendPacketType(PACKET_BATTERY_LEVEL));
+	MUST(sendPacketNumber());
+	MUST(sendFloat(batteryVoltage));
+	MUST(sendFloat(batteryPercentage));
+
+	MUST(endPacket());
 }
 
 // PACKET_TAP 13
 void Connection::sendSensorTap(uint8_t sensorId, uint8_t value) {
 	MUST(m_Connected);
-	MUST(sendPacket(
-		SendPacketType::Tap,
-		TapPacket{
-			.sensorId = sensorId,
-			.value = value,
-		}
-	));
+
+	MUST(beginPacket());
+
+	MUST(sendPacketType(PACKET_TAP));
+	MUST(sendPacketNumber());
+	MUST(sendByte(sensorId));
+	MUST(sendByte(value));
+
+	MUST(endPacket());
 }
 
 // PACKET_ERROR 14
 void Connection::sendSensorError(uint8_t sensorId, uint8_t error) {
 	MUST(m_Connected);
-	sendPacket(
-		SendPacketType::Error,
-		ErrorPacket{
-			.sensorId = sensorId,
-			.error = error,
-		}
-	);
+
+	MUST(beginPacket());
+
+	MUST(sendPacketType(PACKET_ERROR));
+	MUST(sendPacketNumber());
+	MUST(sendByte(sensorId));
+	MUST(sendByte(error));
+
+	MUST(endPacket());
 }
 
 // PACKET_SENSOR_INFO 15
 void Connection::sendSensorInfo(Sensor& sensor) {
 	MUST(m_Connected);
-	MUST(sendPacket(
-		SendPacketType::SensorInfo,
-		SensorInfoPacket{
-			.sensorId = sensor.getSensorId(),
-			.sensorState = sensor.getSensorState(),
-			.sensorType = sensor.getSensorType(),
-			.sensorConfigData = sensor.getSensorConfigData(),
-			.hasCompletedRestCalibration = sensor.hasCompletedRestCalibration(),
-			.sensorPosition = sensor.getSensorPosition(),
-			.sensorDataType = sensor.getDataType(),
 
-			.tpsCounterAveragedTps = sensor.m_tpsCounter.getAveragedTPS(),
-			.dataCounterAveragedTps = sensor.m_dataCounter.getAveragedTPS(),
-		}
-	));
+	MUST(beginPacket());
+
+	MUST(sendPacketType(PACKET_SENSOR_INFO));
+	MUST(sendPacketNumber());
+	MUST(sendByte(sensor.getSensorId()));
+	MUST(sendByte(static_cast<uint8_t>(sensor.getSensorState())));
+	MUST(sendByte(static_cast<uint8_t>(sensor.getSensorType())));
+	MUST(sendShort(sensor.getSensorConfigData()));
+	MUST(sendByte(sensor.hasCompletedRestCalibration()));
+
+	MUST(endPacket());
 }
 
 // PACKET_ROTATION_DATA 17
@@ -273,122 +310,118 @@ void Connection::sendRotationData(
 	uint8_t accuracyInfo
 ) {
 	MUST(m_Connected);
-	MUST(sendPacket(
-		SendPacketType::RotationData,
-		RotationDataPacket{
-			.sensorId = sensorId,
-			.dataType = dataType,
-			.x = quaternion->x,
-			.y = quaternion->y,
-			.z = quaternion->z,
-			.w = quaternion->w,
-			.accuracyInfo = accuracyInfo,
-		}
-	));
+
+	MUST(beginPacket());
+
+	MUST(sendPacketType(PACKET_ROTATION_DATA));
+	MUST(sendPacketNumber());
+	MUST(sendByte(sensorId));
+	MUST(sendByte(dataType));
+	MUST(sendFloat(quaternion->x));
+	MUST(sendFloat(quaternion->y));
+	MUST(sendFloat(quaternion->z));
+	MUST(sendFloat(quaternion->w));
+	MUST(sendByte(accuracyInfo));
+
+	MUST(endPacket());
 }
 
 // PACKET_MAGNETOMETER_ACCURACY 18
 void Connection::sendMagnetometerAccuracy(uint8_t sensorId, float accuracyInfo) {
 	MUST(m_Connected);
-	MUST(sendPacket(
-		SendPacketType::MagnetometerAccuracy,
-		MagnetometerAccuracyPacket{
-			.sensorId = sensorId,
-			.accuracyInfo = accuracyInfo,
-		}
-	));
+
+	MUST(beginPacket());
+
+	MUST(sendPacketType(PACKET_MAGNETOMETER_ACCURACY));
+	MUST(sendPacketNumber());
+	MUST(sendByte(sensorId));
+	MUST(sendFloat(accuracyInfo));
+
+	MUST(endPacket());
 }
 
 // PACKET_SIGNAL_STRENGTH 19
 void Connection::sendSignalStrength(uint8_t signalStrength) {
 	MUST(m_Connected);
-	MUST(sendPacket(
-		SendPacketType::SignalStrength,
-		SignalStrengthPacket{
-			.sensorId = 255,
-			.signalStrength = signalStrength,
-		}
-	));
+
+	MUST(beginPacket());
+
+	MUST(sendPacketType(PACKET_SIGNAL_STRENGTH));
+	MUST(sendPacketNumber());
+	MUST(sendByte(255));
+	MUST(sendByte(signalStrength));
+
+	MUST(endPacket());
 }
 
 // PACKET_TEMPERATURE 20
 void Connection::sendTemperature(uint8_t sensorId, float temperature) {
 	MUST(m_Connected);
-	MUST(sendPacket(
-		SendPacketType::Temperature,
-		TemperaturePacket{
-			.sensorId = sensorId,
-			.temperature = temperature,
-		}
-	));
+
+	MUST(beginPacket());
+
+	MUST(sendPacketType(PACKET_TEMPERATURE));
+	MUST(sendPacketNumber());
+	MUST(sendByte(sensorId));
+	MUST(sendFloat(temperature));
+
+	MUST(endPacket());
 }
 
 // PACKET_FEATURE_FLAGS 22
 void Connection::sendFeatureFlags() {
 	MUST(m_Connected);
-	sendPacketCallback(SendPacketType::FeatureFlags, [&]() {
-		return write(FirmwareFeatures::flags.data(), FirmwareFeatures::flags.size());
-	});
+
+	MUST(beginPacket());
+
+	MUST(sendPacketType(PACKET_FEATURE_FLAGS));
+	MUST(sendPacketNumber());
+	MUST(write(FirmwareFeatures::flags.data(), FirmwareFeatures::flags.size()));
+
+	MUST(endPacket());
 }
 
 // PACKET_ACKNOWLEDGE_CONFIG_CHANGE 24
 
-void Connection::sendAcknowledgeConfigChange(
-	uint8_t sensorId,
-	SensorToggles configType
-) {
+void Connection::sendAcknowledgeConfigChange(uint8_t sensorId, uint16_t configType) {
 	MUST(m_Connected);
-	MUST(sendPacket(
-		SendPacketType::AcknowledgeConfigChange,
-		AcknowledgeConfigChangePacket{
-			.sensorId = sensorId,
-			.configType = configType,
-		}
-	));
+
+	MUST(beginPacket());
+
+	MUST(sendPacketType(PACKET_ACKNOWLEDGE_CONFIG_CHANGE));
+	MUST(sendPacketNumber());
+	MUST(sendByte(sensorId));
+	MUST(sendShort(configType));
+
+	MUST(endPacket());
 }
 
 void Connection::sendTrackerDiscovery() {
 	MUST(!m_Connected);
-	MUST(sendPacketCallback(
-		SendPacketType::Handshake,
-		[&]() {
-			uint8_t mac[6];
-			WiFi.macAddress(mac);
 
-			MUST_TRANSFER_BOOL(sendInt(BOARD));
-			// This is kept for backwards compatibility,
-			// but the latest SlimeVR server will not initialize trackers
-			// with firmware build > 8 until it recieves a sensor info packet
-			MUST_TRANSFER_BOOL(sendInt(static_cast<int>(sensorManager.getSensorType(0)))
-			);
-			MUST_TRANSFER_BOOL(sendInt(HARDWARE_MCU));
-			// Backwards compatibility, unused IMU data
-			MUST_TRANSFER_BOOL(sendInt(0));
-			MUST_TRANSFER_BOOL(sendInt(0));
-			MUST_TRANSFER_BOOL(sendInt(0));
-			MUST_TRANSFER_BOOL(sendInt(PROTOCOL_VERSION));
-			MUST_TRANSFER_BOOL(sendShortString(FIRMWARE_VERSION));
-			// MAC address string
-			MUST_TRANSFER_BOOL(sendBytes(mac, 6));
-			// Tracker type to hint the server if it's a glove or normal tracker or
-			// something else
-			MUST_TRANSFER_BOOL(sendByte(static_cast<uint8_t>(TRACKER_TYPE)));
-			return true;
-		},
-		0
-	));
-}
+	uint8_t mac[6];
+	WiFi.macAddress(mac);
 
-// PACKET_FLEX_DATA 24
-void Connection::sendFlexData(uint8_t sensorId, float flexLevel) {
-	MUST(m_Connected);
-	MUST(sendPacket(
-		SendPacketType::FlexData,
-		FlexDataPacket{
-			.sensorId = sensorId,
-			.flexLevel = flexLevel,
-		}
-	));
+	MUST(beginPacket());
+
+	MUST(sendPacketType(PACKET_HANDSHAKE));
+	// Packet number is always 0 for handshake
+	MUST(sendLong(0));
+	MUST(sendInt(BOARD));
+	// This is kept for backwards compatibility,
+	// but the latest SlimeVR server will not initialize trackers
+	// with firmware build > 8 until it recieves a sensor info packet
+	MUST(sendInt(static_cast<int>(sensorManager.getSensorType(0))));
+	MUST(sendInt(HARDWARE_MCU));
+	MUST(sendInt(0));
+	MUST(sendInt(0));
+	MUST(sendInt(0));
+	MUST(sendInt(PROTOCOL_VERSION));
+	MUST(sendShortString(FIRMWARE_VERSION));
+	// MAC address string
+	MUST(sendBytes(mac, 6));
+
+	MUST(endPacket());
 }
 
 #if ENABLE_INSPECTION
@@ -408,29 +441,33 @@ void Connection::sendInspectionRawIMUData(
 	uint8_t mA
 ) {
 	MUST(m_Connected);
-	MUST(sendPacket(
-		SendPacketType::Inspection,
-		IntRawImuDataInspectionPacket{
-			.inspectionPacketType = InspectionPacketType::RawImuData,
-			.sensorId = sensorId,
-			.inspectionDataType = InspectionDataType::Int,
 
-			.rX = static_cast<uint32_t>(rX),
-			.rY = static_cast<uint32_t>(rY),
-			.rZ = static_cast<uint32_t>(rZ),
-			.rA = rA,
+	MUST(beginPacket());
 
-			.aX = static_cast<uint32_t>(aX),
-			.aY = static_cast<uint32_t>(aY),
-			.aZ = static_cast<uint32_t>(aZ),
-			.aA = aA,
+	MUST(sendPacketType(PACKET_INSPECTION));
+	MUST(sendPacketNumber());
 
-			.mX = static_cast<uint32_t>(mX),
-			.mY = static_cast<uint32_t>(mY),
-			.mZ = static_cast<uint32_t>(mZ),
-			.mA = mA,
-		}
-	))
+	MUST(sendByte(PACKET_INSPECTION_PACKETTYPE_RAW_IMU_DATA));
+
+	MUST(sendByte(sensorId));
+	MUST(sendByte(PACKET_INSPECTION_DATATYPE_INT));
+
+	MUST(sendInt(rX));
+	MUST(sendInt(rY));
+	MUST(sendInt(rZ));
+	MUST(sendByte(rA));
+
+	MUST(sendInt(aX));
+	MUST(sendInt(aY));
+	MUST(sendInt(aZ));
+	MUST(sendByte(aA));
+
+	MUST(sendInt(mX));
+	MUST(sendInt(mY));
+	MUST(sendInt(mZ));
+	MUST(sendByte(mA));
+
+	MUST(endPacket());
 }
 
 void Connection::sendInspectionRawIMUData(
@@ -449,29 +486,33 @@ void Connection::sendInspectionRawIMUData(
 	uint8_t mA
 ) {
 	MUST(m_Connected);
-	MUST(sendPacket(
-		SendPacketType::Inspection,
-		FloatRawImuDataInspectionPacket{
-			.inspectionPacketType = InspectionPacketType::RawImuData,
-			.sensorId = sensorId,
-			.inspectionDataType = InspectionDataType::Float,
 
-			.rX = rX,
-			.rY = rY,
-			.rZ = rZ,
-			.rA = rA,
+	MUST(beginPacket());
 
-			.aX = aX,
-			.aY = aY,
-			.aZ = aZ,
-			.aA = aA,
+	MUST(sendPacketType(PACKET_INSPECTION));
+	MUST(sendPacketNumber());
 
-			.mX = mX,
-			.mY = mY,
-			.mZ = mZ,
-			.mA = mA,
-		}
-	));
+	MUST(sendByte(PACKET_INSPECTION_PACKETTYPE_RAW_IMU_DATA));
+
+	MUST(sendByte(sensorId));
+	MUST(sendByte(PACKET_INSPECTION_DATATYPE_FLOAT));
+
+	MUST(sendFloat(rX));
+	MUST(sendFloat(rY));
+	MUST(sendFloat(rZ));
+	MUST(sendByte(rA));
+
+	MUST(sendFloat(aX));
+	MUST(sendFloat(aY));
+	MUST(sendFloat(aZ));
+	MUST(sendByte(aA));
+
+	MUST(sendFloat(mX));
+	MUST(sendFloat(mY));
+	MUST(sendFloat(mZ));
+	MUST(sendByte(mA));
+
+	MUST(endPacket());
 }
 #endif
 
@@ -514,11 +555,8 @@ void Connection::maybeRequestFeatureFlags() {
 }
 
 bool Connection::isSensorStateUpdated(int i, std::unique_ptr<Sensor>& sensor) {
-	return (m_AckedSensorState[i] != sensor->getSensorState()
-			|| m_AckedSensorCalibration[i] != sensor->hasCompletedRestCalibration()
-			|| m_AckedSensorConfigData[i] != sensor->getSensorConfigData())
-		&& sensor->getSensorType() != SensorTypeID::Unknown
-		&& sensor->getSensorType() != SensorTypeID::Empty;
+	return m_AckedSensorState[i] != sensor->getSensorState()
+		|| m_AckedSensorCalibration[i] != sensor->hasCompletedRestCalibration();
 }
 
 void Connection::searchForServer() {
@@ -539,12 +577,13 @@ void Connection::searchForServer() {
 			m_UDP.remotePort()
 		);
 		m_Logger.traceArray("UDP packet contents: ", m_Packet, len);
+#else
+		(void)len;
 #endif
 
 		// Handshake is different, it has 3 in the first byte, not the 4th, and data
 		// starts right after
-		if (static_cast<ReceivePacketType>(m_Packet[0])
-			== ReceivePacketType::Handshake) {
+		if (m_Packet[0] == PACKET_HANDSHAKE) {
 			if (strncmp((char*)m_Packet + 1, "Hey OVR =D 5", 12) != 0) {
 				m_Logger.error("Received invalid handshake packet");
 				continue;
@@ -588,18 +627,13 @@ void Connection::reset() {
 	m_Connected = false;
 	std::fill(
 		m_AckedSensorState,
-		m_AckedSensorState + MAX_SENSORS_COUNT,
+		m_AckedSensorState + MAX_IMU_COUNT,
 		SensorStatus::SENSOR_OFFLINE
 	);
 	std::fill(
 		m_AckedSensorCalibration,
-		m_AckedSensorCalibration + MAX_SENSORS_COUNT,
+		m_AckedSensorCalibration + MAX_IMU_COUNT,
 		false
-	);
-	std::fill(
-		m_AckedSensorConfigData,
-		m_AckedSensorConfigData + MAX_SENSORS_COUNT,
-		SlimeVR::Configuration::SensorConfigBits{}
 	);
 
 	m_UDP.begin(m_ServerPort);
@@ -608,15 +642,15 @@ void Connection::reset() {
 }
 
 void Connection::update() {
-	if (!m_Connected) {
-		searchForServer();
-		return;
-	}
-
 	auto& sensors = sensorManager.getSensors();
 
 	updateSensorState(sensors);
 	maybeRequestFeatureFlags();
+
+	if (!m_Connected) {
+		searchForServer();
+		return;
+	}
 
 	if (m_LastPacketTimestamp + TIMEOUT < millis()) {
 		statusManager.setStatus(SlimeVR::Status::SERVER_CONNECTING, true);
@@ -624,12 +658,12 @@ void Connection::update() {
 		m_Connected = false;
 		std::fill(
 			m_AckedSensorState,
-			m_AckedSensorState + MAX_SENSORS_COUNT,
+			m_AckedSensorState + MAX_IMU_COUNT,
 			SensorStatus::SENSOR_OFFLINE
 		);
 		std::fill(
 			m_AckedSensorCalibration,
-			m_AckedSensorCalibration + MAX_SENSORS_COUNT,
+			m_AckedSensorCalibration + MAX_IMU_COUNT,
 			false
 		);
 		m_Logger.warn("Connection to server timed out");
@@ -657,56 +691,51 @@ void Connection::update() {
 	(void)packetSize;
 #endif
 
-	switch (static_cast<ReceivePacketType>(m_Packet[3])) {
-		case ReceivePacketType::HeartBeat:
+	switch (convert_chars<int>(m_Packet)) {
+		case PACKET_RECEIVE_HEARTBEAT:
 			sendHeartbeat();
 			break;
 
-		case ReceivePacketType::Vibrate:
+		case PACKET_RECEIVE_VIBRATE:
 			break;
 
-		case ReceivePacketType::Handshake:
+		case PACKET_RECEIVE_HANDSHAKE:
 			// Assume handshake successful
 			m_Logger.warn("Handshake received again, ignoring");
 			break;
 
-		case ReceivePacketType::Command:
+		case PACKET_RECEIVE_COMMAND:
 			break;
 
-		case ReceivePacketType::Config:
+		case PACKET_CONFIG:
 			break;
 
-		case ReceivePacketType::PingPong:
+		case PACKET_PING_PONG:
 			returnLastPacket(len);
 			break;
 
-		case ReceivePacketType::SensorInfo: {
+		case PACKET_SENSOR_INFO:
 			if (len < 6) {
 				m_Logger.warn("Wrong sensor info packet");
 				break;
 			}
 
-			SensorInfoPacket sensorInfoPacket;
-			memcpy(&sensorInfoPacket, m_Packet + 4, sizeof(sensorInfoPacket));
-
 			for (int i = 0; i < (int)sensors.size(); i++) {
-				if (sensorInfoPacket.sensorId == sensors[i]->getSensorId()) {
-					m_AckedSensorState[i] = sensorInfoPacket.sensorState;
+				if (m_Packet[4] == sensors[i]->getSensorId()) {
+					m_AckedSensorState[i] = (SensorStatus)m_Packet[5];
 					if (len < 12) {
 						m_AckedSensorCalibration[i]
 							= sensors[i]->hasCompletedRestCalibration();
-						m_AckedSensorConfigData[i] = sensors[i]->getSensorConfigData();
 						break;
 					}
-					m_AckedSensorCalibration[i]
-						= sensorInfoPacket.hasCompletedRestCalibration;
+					m_AckedSensorCalibration[i] = (bool)m_Packet[11];
 					break;
 				}
 			}
 
 			break;
-		}
-		case ReceivePacketType::FeatureFlags: {
+
+		case PACKET_FEATURE_FLAGS: {
 			// Packet type (4) + Packet number (8) + flags (len - 12)
 			if (len < 13) {
 				m_Logger.warn("Invalid feature flags packet: too short");
@@ -729,41 +758,37 @@ void Connection::update() {
 			break;
 		}
 
-		case ReceivePacketType::SetConfigFlag: {
+		case PACKET_SET_CONFIG_FLAG: {
 			// Packet type (4) + Packet number (8) + sensor_id(1) + flag_id (2) + state
 			// (1)
 			if (len < 16) {
 				m_Logger.warn("Invalid sensor config flag packet: too short");
 				break;
 			}
-
-			SetConfigFlagPacket setConfigFlagPacket;
-			memcpy(&setConfigFlagPacket, m_Packet + 12, sizeof(SetConfigFlagPacket));
-
-			uint8_t sensorId = setConfigFlagPacket.sensorId;
-			SensorToggles flag = setConfigFlagPacket.flag;
-			bool newState = setConfigFlagPacket.newState;
+			uint8_t sensorId = m_Packet[12];
+			uint16_t flagId = m_Packet[13] << 8 | m_Packet[14];
+			bool newState = m_Packet[15] > 0;
 			if (sensorId == UINT8_MAX) {
 				for (auto& sensor : sensors) {
-					sensor->setFlag(flag, newState);
+					sensor->setFlag(flagId, newState);
 				}
 			} else {
 				auto& sensors = sensorManager.getSensors();
-
-				if (sensorId >= sensors.size()) {
+				if (sensorId < sensors.size()) {
+					auto& sensor = sensors[sensorId];
+					sensor->setFlag(flagId, newState);
+				} else {
 					m_Logger.warn("Invalid sensor config flag packet: invalid sensor id"
 					);
 					break;
 				}
-
-				auto& sensor = sensors[sensorId];
-				sensor->setFlag(flag, newState);
 			}
-			sendAcknowledgeConfigChange(sensorId, flag);
+			sendAcknowledgeConfigChange(sensorId, flagId);
 			configuration.save();
 			break;
 		}
 	}
 }
 
-}  // namespace SlimeVR::Network
+}  // namespace Network
+}  // namespace SlimeVR

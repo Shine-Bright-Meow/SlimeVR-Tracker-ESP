@@ -25,8 +25,8 @@
 
 #include <Arduino.h>
 
-#include "../globals.h"
-#include "../logging/Logger.h"
+#include "globals.h"
+#include "logging/Logger.h"
 
 #define DEFAULT_LENGTH 300
 #define DEFAULT_GAP 500
@@ -51,6 +51,9 @@ enum LEDStage { OFF, ON, GAP, INTERVAL };
 
 class LEDManager {
 public:
+	LEDManager(uint8_t pin)
+		: m_Pin(pin) {}
+
 	void setup();
 
 	/*!
@@ -85,10 +88,7 @@ private:
 	LEDStage m_CurrentStage = OFF;
 	unsigned long m_LastUpdate = millis();
 
-	uint8_t m_Pin = LED_PIN;
-	bool m_Enabled = m_Pin >= 0 && m_Pin < LED_OFF;
-	bool m_On = LED_INVERTED ? LOW : HIGH;
-	bool m_Off = !m_On;
+	uint8_t m_Pin;
 
 	Logging::Logger m_Logger = Logging::Logger("LEDManager");
 };

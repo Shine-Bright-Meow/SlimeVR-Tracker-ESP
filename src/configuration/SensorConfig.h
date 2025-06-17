@@ -28,7 +28,8 @@
 
 #include "consts.h"
 
-namespace SlimeVR::Configuration {
+namespace SlimeVR {
+namespace Configuration {
 struct BMI160SensorConfig {
 	// accelerometer offsets and correction matrix
 	float A_B[3];
@@ -46,7 +47,7 @@ struct BMI160SensorConfig {
 };
 
 struct SoftFusionSensorConfig {
-	SensorTypeID ImuType;
+	ImuID ImuType;
 	uint16_t MotionlessDataLen;
 
 	// accelerometer offsets and correction matrix
@@ -72,32 +73,6 @@ struct SoftFusionSensorConfig {
 	float G_Sens[3];
 
 	uint8_t MotionlessData[60];
-
-	// temperature sampling rate (placed at the end to not break existing configs)
-	float T_Ts;
-};
-
-struct RuntimeCalibrationSensorConfig {
-	SensorTypeID ImuType;
-	uint16_t MotionlessDataLen;
-
-	bool sensorTimestepsCalibrated;
-	float A_Ts;
-	float G_Ts;
-	float M_Ts;
-	float T_Ts;
-
-	bool motionlessCalibrated;
-	uint8_t MotionlessData[60];
-
-	uint8_t gyroPointsCalibrated;
-	float gyroMeasurementTemperature1;
-	float G_off1[3];
-	float gyroMeasurementTemperature2;
-	float G_off2[3];
-
-	bool accelCalibrated[3];
-	float A_off[3];
 };
 
 struct MPU6050SensorConfig {
@@ -156,8 +131,7 @@ enum class SensorConfigType {
 	MPU9250,
 	ICM20948,
 	SFUSION,
-	BNO0XX,
-	RUNTIME_CALIBRATION,
+	BNO0XX
 };
 
 const char* calibrationConfigTypeToString(SensorConfigType type);
@@ -172,29 +146,11 @@ struct SensorConfig {
 		MPU9250SensorConfig mpu9250;
 		ICM20948SensorConfig icm20948;
 		BNO0XXSensorConfig bno0XX;
-		RuntimeCalibrationSensorConfig runtimeCalibration;
 	} data;
 };
 
-struct SensorConfigBits {
-	bool magEnabled : 1;
-	bool magSupported : 1;
-	bool calibrationEnabled : 1;
-	bool calibrationSupported : 1;
-	bool tempGradientCalibrationEnabled : 1;
-	bool tempGradientCalibrationSupported : 1;
-
-	// Remove if the above fields exceed a byte, necessary to make the struct 16
-	// bit
-	uint8_t padding;
-
-	bool operator==(const SensorConfigBits& rhs) const;
-	bool operator!=(const SensorConfigBits& rhs) const;
-};
-
-// If this fails, you forgot to do the above
-static_assert(sizeof(SensorConfigBits) == 2);
-
-}  // namespace SlimeVR::Configuration
+uint16_t configDataToNumber(SensorConfig* sensorConfig, bool magSupported);
+}  // namespace Configuration
+}  // namespace SlimeVR
 
 #endif

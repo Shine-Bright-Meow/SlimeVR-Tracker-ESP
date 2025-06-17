@@ -32,7 +32,7 @@
 #define IMU_ROTATION DEG_270
 #define SECOND_IMU_ROTATION DEG_270
 
-#define PRIMARY_IMU_OPTIONAL false
+#define PRIMARY_IMU_OPTIONAL true
 #define SECONDARY_IMU_OPTIONAL true
 
 // Set I2C address here or directly in IMU_DESC_ENTRY for each IMU used

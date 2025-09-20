@@ -23,23 +23,12 @@
 #ifndef SLIMEVR_WIFIPROVISIONING_H_
 #define SLIMEVR_WIFIPROVISIONING_H_
 
-#include "logging/Logger.h"
-
-namespace SlimeVR {
-
-class WifiProvisioning {
-public:
-	void upkeepProvisioning();
-	void startProvisioning();
-	void stopProvisioning();
-	bool isProvisioning() const;
-	void provideNeighbours();
-
-private:
-	SlimeVR::Logging::Logger wifiProvisioningLogger{"WiFiProvisioning"};
-	bool provisioning = false;
-};
-
-}  // namespace SlimeVR
+namespace WiFiNetwork {
+void upkeepProvisioning();
+void startProvisioning();
+void stopProvisioning();
+bool isProvisioning();
+void provideNeighbours();
+}  // namespace WiFiNetwork
 
 #endif  // SLIMEVR_WIFIPROVISIONING_H_

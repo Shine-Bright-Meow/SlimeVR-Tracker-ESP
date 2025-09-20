@@ -94,7 +94,7 @@ void cmdSet(CmdParser* parser) {
 					return;
 				}
 
-				wifiNetwork.setWiFiCredentials(sc_ssid, sc_pw);
+				WiFiNetwork::setWiFiCredentials(sc_ssid, sc_pw);
 				logger.info("CMD SET WIFI OK: New wifi credentials set, reconnecting");
 			}
 		} else if (parser->equalCmdParam(1, "BWIFI")) {
@@ -140,7 +140,7 @@ void cmdSet(CmdParser* parser) {
 					// set the pointer for pass to null for no password
 					ppass = NULL;
 				}
-				wifiNetwork.setWiFiCredentials(ssid, ppass);
+				WiFiNetwork::setWiFiCredentials(ssid, ppass);
 				logger.info("CMD SET BWIFI OK: New wifi credentials set, reconnecting");
 			}
 		} else {
@@ -159,10 +159,10 @@ void printState() {
 		HARDWARE_MCU,
 		PROTOCOL_VERSION,
 		FIRMWARE_VERSION,
-		wifiNetwork.getAddress().toString().c_str(),
+		WiFiNetwork::getAddress().toString().c_str(),
 		WiFi.macAddress().c_str(),
 		statusManager.getStatus(),
-		wifiNetwork.getWiFiState()
+		WiFiNetwork::getWiFiState()
 	);
 
 	char vendorBuffer[512];
@@ -320,10 +320,10 @@ void cmdGet(CmdParser* parser) {
 			HARDWARE_MCU,
 			PROTOCOL_VERSION,
 			FIRMWARE_VERSION,
-			wifiNetwork.getAddress().toString().c_str(),
+			WiFiNetwork::getAddress().toString().c_str(),
 			WiFi.macAddress().c_str(),
 			statusManager.getStatus(),
-			wifiNetwork.getWiFiState()
+			WiFiNetwork::getWiFiState()
 		);
 		auto& sensor0 = sensorManager.getSensors()[0];
 		sensor0->motionLoop();
@@ -356,8 +356,8 @@ void cmdGet(CmdParser* parser) {
 		if (WiFi.status() != WL_CONNECTED) {
 			WiFi.disconnect();
 		}
-		if (wifiProvisioning.isProvisioning()) {
-			wifiProvisioning.stopProvisioning();
+		if (WiFiNetwork::isProvisioning()) {
+			WiFiNetwork::stopProvisioning();
 		}
 
 		WiFi.scanNetworks();

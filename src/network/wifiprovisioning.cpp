@@ -29,31 +29,29 @@
 // it sucks.
 // TODO: New implementation: https://github.com/SlimeVR/SlimeVR-Tracker-ESP/issues/71
 
-namespace SlimeVR {
+// TODO: Cleanup with proper classes
+SlimeVR::Logging::Logger wifiProvisioningLogger("WiFiProvisioning");
+bool provisioning = false;
 
-void WifiProvisioning::upkeepProvisioning() {
+void WiFiNetwork::upkeepProvisioning() {
 	// Called even when not provisioning to do things like provide neighbours or other
 	// upkeep
 }
 
-void WifiProvisioning::startProvisioning() {
+void WiFiNetwork::startProvisioning() {
 	if (WiFi.beginSmartConfig()) {
 		provisioning = true;
 		wifiProvisioningLogger.info("SmartConfig started");
 	}
 }
 
-void WifiProvisioning::stopProvisioning() {
+void WiFiNetwork::stopProvisioning() {
 	WiFi.stopSmartConfig();
 	provisioning = false;
 }
 
-void WifiProvisioning::provideNeighbours() {
+void WiFiNetwork::provideNeighbours() {
 	// TODO: SmartConfig can't do this, created for future
 }
 
-bool WifiProvisioning::isProvisioning() const {
-	return provisioning && !WiFi.smartConfigDone();
-}
-
-}  // namespace SlimeVR
+bool WiFiNetwork::isProvisioning() { return provisioning && !WiFi.smartConfigDone(); }

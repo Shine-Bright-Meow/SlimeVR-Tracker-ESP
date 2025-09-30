@@ -63,9 +63,6 @@ private:
 	void setStaticIPIfDefined();
 	void onConnected();
 
-	static String getSSID();
-	static String getPassword();
-
 	bool trySavedCredentials();
 	bool tryHardcodedCredentials();
 	bool tryServerCredentials();

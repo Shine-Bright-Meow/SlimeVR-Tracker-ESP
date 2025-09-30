@@ -21,10 +21,7 @@
 	THE SOFTWARE.
 */
 #include "GlobalVars.h"
-#include "WiFi.h"
-#include "esp_wifi_types.h"
 #include "globals.h"
-#include "network/wifihandler.h"
 #if !ESP8266
 #include "esp_wifi.h"
 #endif
@@ -53,6 +50,7 @@ bool WiFiNetwork::isConnected() const {
 
 void WiFiNetwork::setWiFiCredentials(const char* SSID, const char* pass) {
 	wifiProvisioning.stopProvisioning();
+	WiFi.persistent(true);
 	tryConnecting(false, SSID, pass);
 	retriedOnG = false;
 	// Reset state, will get back into provisioning if can't connect
@@ -64,13 +62,14 @@ IPAddress WiFiNetwork::getAddress() { return WiFi.localIP(); }
 
 void WiFiNetwork::setUp() {
 	// Don't need to save the already saved credentials or the hardcoded ones
+	WiFi.persistent(false);
 	wifiHandlerLogger.info("Setting up WiFi");
 	WiFi.mode(WIFI_STA);
 	WiFi.hostname("SlimeVR FBT Tracker");
 	wifiHandlerLogger.info(
 		"Loaded credentials for SSID '%s' and pass length %d",
-		getSSID().c_str(),
-		getPassword().length()
+		WiFi.SSID().c_str(),
+		WiFi.psk().length()
 	);
 
 	trySavedCredentials();
@@ -112,40 +111,17 @@ void WiFiNetwork::onConnected() {
 	hadWifi = true;
 	wifiHandlerLogger.info(
 		"Connected successfully to SSID '%s', IP address %s",
-		getSSID().c_str(),
+		WiFi.SSID().c_str(),
 		WiFi.localIP().toString().c_str()
 	);
 	// Reset it, in case we just connected with server creds
-}
-
-String WiFiNetwork::getSSID() {
-#if ESP8266
-	return WiFi.SSID();
-#else
-	// Necessary, because without a WiFi.begin(), ESP32 is not kind enough to load the
-	// SSID on its own, for whatever reason
-	wifi_config_t wifiConfig;
-	esp_wifi_get_config((wifi_interface_t)ESP_IF_WIFI_STA, &wifiConfig);
-	return {reinterpret_cast<char*>(wifiConfig.sta.ssid)};
-#endif
-}
-
-String WiFiNetwork::getPassword() {
-#if ESP8266
-	return WiFi.psk();
-#else
-	// Same as above
-	wifi_config_t wifiConfig;
-	esp_wifi_get_config((wifi_interface_t)ESP_IF_WIFI_STA, &wifiConfig);
-	return {reinterpret_cast<char*>(wifiConfig.sta.password)};
-#endif
+	WiFi.persistent(false);
 }
 
 WiFiNetwork::WiFiReconnectionStatus WiFiNetwork::getWiFiState() { return wifiState; }
 
 void WiFiNetwork::upkeep() {
 	wifiProvisioning.upkeepProvisioning();
-
 	if (WiFi.status() == WL_CONNECTED) {
 		if (!isConnected()) {
 			onConnected();
@@ -167,10 +143,7 @@ void WiFiNetwork::upkeep() {
 		return;
 	}
 
-	if (wifiState != WiFiReconnectionStatus::Failed) {
-		reportWifiProgress();
-	}
-
+	reportWifiProgress();
 	if (millis() - wifiConnectionTimeout
 			< static_cast<uint32_t>(WiFiTimeoutSeconds * 1000)
 		&& WiFi.status() == WL_DISCONNECTED) {
@@ -276,7 +249,7 @@ void WiFiNetwork::showConnectionAttemptFailed(const char* type) const {
 }
 
 bool WiFiNetwork::trySavedCredentials() {
-	if (getSSID().length() == 0) {
+	if (WiFi.SSID().length() == 0) {
 		wifiHandlerLogger.debug("Skipping saved credentials attempt on 0-length SSID..."
 		);
 		wifiState = WiFiReconnectionStatus::HardcodeAttempt;
@@ -320,17 +293,13 @@ bool WiFiNetwork::tryHardcodedCredentials() {
 
 		retriedOnG = true;
 		wifiHandlerLogger.debug("Trying hardcoded credentials with PHY Mode G...");
-		WiFi.persistent(false);
 		return tryConnecting(true, WIFI_CREDS_SSID, WIFI_CREDS_PASSWD);
-		WiFi.persistent(true);
 	}
 
 	retriedOnG = false;
 
 	wifiState = WiFiReconnectionStatus::HardcodeAttempt;
-	WiFi.persistent(false);
 	return tryConnecting(false, WIFI_CREDS_SSID, WIFI_CREDS_PASSWD);
-	WiFi.persistent(true);
 #else
 	wifiState = WiFiReconnectionStatus::HardcodeAttempt;
 	return false;

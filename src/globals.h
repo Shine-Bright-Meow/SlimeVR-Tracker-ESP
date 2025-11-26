@@ -62,7 +62,7 @@
 #endif
 
 #ifndef VENDOR_URL
-#define VENDOR_URL "https://ventifbt.store/"
+#define VENDOR_URL "https://ventifbt.store"
 #endif
 
 #ifndef PRODUCT_NAME
@@ -70,7 +70,7 @@
 #endif
 
 #ifndef UPDATE_ADDRESS
-#define UPDATE_ADDRESS "SlimeVR-Tracker-ESP/edit/optimized-params-v2-esp32"
+#define UPDATE_ADDRESS "Shine-Bright-Meow/SlimeVR-Tracker-ESP/tree/optimized-params-v2-esp32"
 #endif
 
 #ifndef UPDATE_NAME

@@ -319,7 +319,7 @@
 					{
 						"protocol": "I2C",
 						"imu": "IMU_BMI270",
-						"int": "255",
+						"int": "5",
 						"rotation": "DEG_90",
 						"scl": "4",
 						"sda": "6"

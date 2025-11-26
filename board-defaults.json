@@ -319,36 +319,36 @@
 					{
 						"protocol": "I2C",
 						"imu": "IMU_ICM45686",
-						"int": "6",
-						"rotation": "DEG_270",
+						"int": "255",
+						"rotation": "DEG_90",
 						"scl": "4",
-						"sda": "5"
+						"sda": "6"
 					},
 					{
 						"protocol": "I2C",
 						"imu": "IMU_ICM45686",
-						"int": "8",
-						"rotation": "DEG_270",
-						"scl": "4",
-						"sda": "5"
+						"int": "255",
+						"rotation": "DEG_90",
+						"scl": "5",
+						"sda": "7"
 					}
 				],
 				"BATTERY": {
 					"type": "BAT_EXTERNAL",
-					"r1": 100,
-					"r2": 220,
-					"shieldR": 180,
+					"r1": 150,
+					"r2": 150,
+					"shieldR": 0,
 					"pin": "3"
 				},
 				"LED": {
-					"LED_PIN": "7",
+					"LED_PIN": "0",
 					"LED_INVERTED": true
 				}
 			},
 			"flashingRules": {
 				"applicationOffset": 0,
-				"needBootPress": false,
-				"needManualReboot": false,
+				"needBootPress": true,
+				"needManualReboot": true,
 				"shouldOnlyUseDefaults": false
 			}
 		},

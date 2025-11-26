@@ -30,7 +30,7 @@
 #define IMU IMU_BMI270
 #endif
 #ifndef SECOND_IMU
-#define SECOND_IMU_BMI270
+#define SECOND IMU_BMI270
 #endif
 #ifndef BOARD
 #define BOARD BOARD_SLIMEVR_V1_2

@@ -348,7 +348,7 @@
 			"flashingRules": {
 				"applicationOffset": 0,
 				"needBootPress": true,
-				"needManualReboot": true,
+				"needManualReboot": false,
 				"shouldOnlyUseDefaults": false
 			}
 		},

@@ -58,21 +58,21 @@
 #endif
 
 #ifndef VENDOR_NAME
-#define VENDOR_NAME "Unknown"
+#define VENDOR_NAME "VentiFBT"
 #endif
 
 #ifndef VENDOR_URL
-#define VENDOR_URL ""
+#define VENDOR_URL "https://ventifbt.store/"
 #endif
 
 #ifndef PRODUCT_NAME
-#define PRODUCT_NAME "DIY SlimeVR Tracker"
+#define PRODUCT_NAME "VentiFBT BMI270 Tracker"
 #endif
 
 #ifndef UPDATE_ADDRESS
-#define UPDATE_ADDRESS ""
+#define UPDATE_ADDRESS "Shine-Bright-Meow/SlimeVR-Tracker-ESP/edit/venti-bmi270"
 #endif
 
 #ifndef UPDATE_NAME
-#define UPDATE_NAME ""
+#define UPDATE_NAME "BOARD_LOLIN_C3_MINI-firmware"
 #endif

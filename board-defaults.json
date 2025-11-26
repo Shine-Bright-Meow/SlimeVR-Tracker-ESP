@@ -323,14 +323,6 @@
 						"rotation": "DEG_90",
 						"scl": "4",
 						"sda": "6"
-					},
-					{
-						"protocol": "I2C",
-						"imu": "IMU_BMI270",
-						"int": "255",
-						"rotation": "DEG_90",
-						"scl": "5",
-						"sda": "7"
 					}
 				],
 				"BATTERY": {
@@ -347,7 +339,7 @@
 			},
 			"flashingRules": {
 				"applicationOffset": 0,
-				"needBootPress": true,
+				"needBootPress": false,
 				"needManualReboot": false,
 				"shouldOnlyUseDefaults": false
 			}

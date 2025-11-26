@@ -318,7 +318,7 @@
 				"SENSORS": [
 					{
 						"protocol": "I2C",
-						"imu": "IMU_ICM45686",
+						"imu": "IMU_BMI270",
 						"int": "255",
 						"rotation": "DEG_90",
 						"scl": "4",
@@ -326,7 +326,7 @@
 					},
 					{
 						"protocol": "I2C",
-						"imu": "IMU_ICM45686",
+						"imu": "IMU_BMI270",
 						"int": "255",
 						"rotation": "DEG_90",
 						"scl": "5",

@@ -43,7 +43,7 @@
 #endif
 
 #ifndef PRIMARY_IMU_OPTIONAL
-#define PRIMARY_IMU_OPTIONAL true
+#define PRIMARY_IMU_OPTIONAL false
 #endif
 #ifndef SECONDARY_IMU_OPTIONAL
 #define SECONDARY_IMU_OPTIONAL true

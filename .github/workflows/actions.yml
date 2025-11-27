@@ -63,6 +63,12 @@ jobs:
           name: binaries
           path: ./build/*.bin
 
+      - name: Upload BOARD_LOLIN_C3_MINI-firmware.bin
+        uses: actions/upload-artifact@v5
+        with:
+          name: BOARD_LOLIN_C3_MINI-firmware
+          path: ./build/BOARD_LOLIN_C3_MINI-firmware.bin
+
       - name: Upload to draft release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')

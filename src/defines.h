@@ -30,7 +30,7 @@
 #define IMU IMU_ICM45686
 #endif
 #ifndef SECOND_IMU
-#define SECOND_IMU IMU_ICM45686
+#define SECOND_IMU IMU
 #endif
 #ifndef BOARD
 #define BOARD BOARD_SLIMEVR_V1_2

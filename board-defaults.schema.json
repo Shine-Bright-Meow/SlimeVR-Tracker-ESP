@@ -81,10 +81,9 @@
 				"rotation": {
 					"$ref": "#/$defs/IMU_ROTATION",
 					"description": "IMU Rotation"
-				},
-				"cs": { "$ref": "#/$defs/pin", "description": "CS Pin" }
+				}
 			},
-			"required": ["protocol", "imu", "cs"]
+			"required": ["protocol", "imu"]
 		},
 
 		"IMU": {
@@ -172,6 +171,7 @@
 				"SENSORS": {
 					"type": "array",
 					"items": { "$ref": "#/$defs/IMU" },
+					"maxItems": 2,
 					"minItems": 1,
 					"description": "Sensors List"
 				},

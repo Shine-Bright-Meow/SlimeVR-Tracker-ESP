@@ -58,21 +58,21 @@
 #endif
 
 #ifndef VENDOR_NAME
-#define VENDOR_NAME "VentiFBT"
+#define VENDOR_NAME "Unknown"
 #endif
 
 #ifndef VENDOR_URL
-#define VENDOR_URL "https://ventifbt.store/"
+#define VENDOR_URL ""
 #endif
 
 #ifndef PRODUCT_NAME
-#define PRODUCT_NAME "VentiFBT Tracker"
+#define PRODUCT_NAME "DIY SlimeVR Tracker"
 #endif
 
 #ifndef UPDATE_ADDRESS
-#define UPDATE_ADDRESS "SlimeVR-Tracker-ESP/edit/optimized-params-v2-esp32"
+#define UPDATE_ADDRESS ""
 #endif
 
 #ifndef UPDATE_NAME
-#define UPDATE_NAME "BOARD_LOLIN_C3_MINI-firmware"
+#define UPDATE_NAME ""
 #endif

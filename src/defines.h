@@ -33,7 +33,7 @@
 #define SECOND_IMU IMU
 #endif
 #ifndef BOARD
-#define BOARD OARD_LOLIN_C3_MINI
+#define BOARD BOARD_SLIMEVR_V1_2
 #endif
 #ifndef IMU_ROTATION
 #define IMU_ROTATION DEG_90

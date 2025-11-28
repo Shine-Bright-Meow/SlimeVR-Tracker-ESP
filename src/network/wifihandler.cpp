@@ -64,7 +64,6 @@ IPAddress WiFiNetwork::getAddress() { return WiFi.localIP(); }
 
 void WiFiNetwork::setUp() {
 	wifiHandlerLogger.info("Setting up WiFi");
-	WiFi.persistent(true);
 	WiFi.mode(WIFI_STA);
 	WiFi.hostname("SlimeVR FBT Tracker");
 	wifiHandlerLogger.info(

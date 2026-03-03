@@ -544,6 +544,18 @@ void Connection::searchForServer() {
 			break;
 		}
 
+		#ifdef ESP32
+		if (packetSize > sizeof(m_Packet)) {
+			// ESP32 seemingly gets stuck when the packet is bigger than the buffer it has
+			// This only happens with packets not meant for it being incidentally received
+			// For compatibility we ignore these and flush the UDP buffer
+			while (packetSize > 0) {
+				packetSize -= m_UDP.read(m_Packet, std::min(sizeof(m_Packet), static_cast<size_t>(packetSize)));
+			}
+			continue;
+		}
+		#endif
+
 		// receive incoming UDP packets
 		[[maybe_unused]] int len = m_UDP.read(m_Packet, sizeof(m_Packet));
 
@@ -664,6 +676,19 @@ void Connection::update() {
 		return;
 	}
 
+	#ifdef ESP32
+	if (packetSize > sizeof(m_Packet)) {
+		// ESP32 seemingly gets stuck when the packet is bigger than the buffer it has
+		// This only happens with packets not meant for it being incidentally received
+		// For compatibility we ignore these and flush the UDP buffer
+		while (packetSize > 0) {
+			packetSize -= m_UDP.read(m_Packet, std::min(sizeof(m_Packet), static_cast<size_t>(packetSize)));
+		}
+		return;
+	}
+	#endif
+
+	m_LastPacketTimestamp = millis();
 	int len = m_UDP.read(m_Packet, sizeof(m_Packet));
 
 #ifdef DEBUG_NETWORK
@@ -678,12 +703,6 @@ void Connection::update() {
 	(void)packetSize;
 #endif
 
-	if (static_cast<ReceivePacketType>(m_Packet[3]) == ReceivePacketType::Handshake) {
-		m_Logger.warn("Handshake received again, ignoring");
-		return;
-	}
-
-	m_LastPacketTimestamp = millis();
 	switch (static_cast<ReceivePacketType>(m_Packet[3])) {
 		case ReceivePacketType::HeartBeat:
 			sendHeartbeat();
@@ -693,7 +712,8 @@ void Connection::update() {
 			break;
 
 		case ReceivePacketType::Handshake:
-			// handled above
+			// Assume handshake successful
+			m_Logger.warn("Handshake received again, ignoring");
 			break;
 
 		case ReceivePacketType::Command:

@@ -545,6 +545,18 @@ void Connection::searchForServer() {
 			break;
 		}
 
+		#ifdef ESP32
+		if (packetSize > sizeof(m_Packet)) {
+			// ESP32 seemingly gets stuck when the packet is bigger than the buffer it has
+			// This only happens with packets not meant for it being incidentally received
+			// For compatibility we ignore these and flush the UDP buffer
+			while (packetSize > 0) {
+				packetSize -= m_UDP.read(m_Packet, std::min(sizeof(m_Packet), static_cast<size_t>(packetSize)));
+			}
+			continue;
+		}
+		#endif
+
 		// receive incoming UDP packets
 		[[maybe_unused]] int len = m_UDP.read(m_Packet, sizeof(m_Packet));
 
@@ -664,6 +676,18 @@ void Connection::update() {
 	if (!packetSize) {
 		return;
 	}
+
+	#ifdef ESP32
+	if (packetSize > sizeof(m_Packet)) {
+		// ESP32 seemingly gets stuck when the packet is bigger than the buffer it has
+		// This only happens with packets not meant for it being incidentally received
+		// For compatibility we ignore these and flush the UDP buffer
+		while (packetSize > 0) {
+			packetSize -= m_UDP.read(m_Packet, std::min(sizeof(m_Packet), static_cast<size_t>(packetSize)));
+		}
+		return;
+	}
+	#endif
 
 	m_LastPacketTimestamp = millis();
 	int len = m_UDP.read(m_Packet, sizeof(m_Packet));

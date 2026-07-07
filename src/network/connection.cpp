@@ -365,7 +365,8 @@ void Connection::sendTrackerDiscovery() {
 			// This is kept for backwards compatibility,
 			// but the latest SlimeVR server will not initialize trackers
 			// with firmware build > 8 until it recieves a sensor info packet
-			MUST_TRANSFER_BOOL(sendInt(static_cast<int>(sensorManager.getSensorType(0)))
+			MUST_TRANSFER_BOOL(
+				sendInt(static_cast<int>(sensorManager.getSensorType(0)))
 			);
 			MUST_TRANSFER_BOOL(sendInt(HARDWARE_MCU));
 			// Backwards compatibility, unused IMU data
@@ -664,6 +665,7 @@ void Connection::update() {
 		return;
 	}
 
+	m_LastPacketTimestamp = millis();
 	int len = m_UDP.read(m_Packet, sizeof(m_Packet));
 
 #ifdef DEBUG_NETWORK
@@ -678,12 +680,6 @@ void Connection::update() {
 	(void)packetSize;
 #endif
 
-	if (static_cast<ReceivePacketType>(m_Packet[3]) == ReceivePacketType::Handshake) {
-		m_Logger.warn("Handshake received again, ignoring");
-		return;
-	}
-
-	m_LastPacketTimestamp = millis();
 	switch (static_cast<ReceivePacketType>(m_Packet[3])) {
 		case ReceivePacketType::HeartBeat:
 			sendHeartbeat();
@@ -693,7 +689,8 @@ void Connection::update() {
 			break;
 
 		case ReceivePacketType::Handshake:
-			// handled above
+			// Assume handshake successful
+			m_Logger.warn("Handshake received again, ignoring");
 			break;
 
 		case ReceivePacketType::Command:
@@ -777,7 +774,8 @@ void Connection::update() {
 				auto& sensors = sensorManager.getSensors();
 
 				if (sensorId >= sensors.size()) {
-					m_Logger.warn("Invalid sensor config flag packet: invalid sensor id"
+					m_Logger.warn(
+						"Invalid sensor config flag packet: invalid sensor id"
 					);
 					break;
 				}

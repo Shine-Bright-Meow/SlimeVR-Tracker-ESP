@@ -93,6 +93,9 @@ void Configuration::setup() {
 	} else {
 		m_Logger.info("No configuration file found, creating new one");
 		m_Config.version = CURRENT_CONFIGURATION_VERSION;
+		m_Config.espnowConfigured = false;
+		memset(m_Config.espnowGatewayAddress, 0, 6);
+		memset(m_Config.espnowSecurityCode, 0, 8);
 		save();
 	}
 
@@ -174,6 +177,38 @@ void Configuration::reset() {
 
 int32_t Configuration::getVersion() const { return m_Config.version; }
 
+const uint8_t* Configuration::getESPNowGatewayAddress() const {
+	if (!m_Config.espnowConfigured) {
+		return nullptr;
+	}
+	return m_Config.espnowGatewayAddress;
+}
+
+const uint8_t* Configuration::getESPNowSecurityCode() const {
+	if (!m_Config.espnowConfigured) {
+		return nullptr;
+	}
+	return m_Config.espnowSecurityCode;
+}
+
+void Configuration::setESPNowGateway(const uint8_t* address, const uint8_t* securityCode) {
+	if (address != nullptr && securityCode != nullptr) {
+		memcpy(m_Config.espnowGatewayAddress, address, 6);
+		memcpy(m_Config.espnowSecurityCode, securityCode, 8);
+		m_Config.espnowConfigured = true;
+		save();
+		m_Logger.info("ESP-NOW gateway configuration saved");
+	}
+}
+
+void Configuration::clearESPNowGateway() {
+	m_Config.espnowConfigured = false;
+	memset(m_Config.espnowGatewayAddress, 0, 6);
+	memset(m_Config.espnowSecurityCode, 0, 8);
+	save();
+	m_Logger.info("ESP-NOW gateway configuration cleared");
+}
+
 size_t Configuration::getSensorCount() const { return m_Sensors.size(); }
 
 SensorConfig Configuration::getSensor(size_t sensorID) const {
@@ -229,41 +264,10 @@ void Configuration::eraseSensors() {
 
 void Configuration::loadSensors() {
 	SlimeVR::Utils::forEachFile(DIR_CALIBRATIONS, [&](SlimeVR::Utils::File f) {
+		SensorConfig sensorConfig;
+		f.read((uint8_t*)&sensorConfig, sizeof(SensorConfig));
+
 		uint8_t sensorId = strtoul(f.name(), nullptr, 10);
-
-		if (f.size() != sizeof(SensorConfig)) {
-			m_Logger.warn(
-				"Skipping incompatible sensor calibration file index %d (size=%u "
-				"expected=%u)",
-				sensorId,
-				static_cast<unsigned>(f.size()),
-				static_cast<unsigned>(sizeof(SensorConfig))
-			);
-			return;
-		}
-
-		SensorConfig sensorConfig{};
-		auto bytesRead = f.read((uint8_t*)&sensorConfig, sizeof(SensorConfig));
-		if (bytesRead != sizeof(SensorConfig)) {
-			m_Logger.warn(
-				"Skipping unreadable sensor calibration file index %d (read=%u "
-				"expected=%u)",
-				sensorId,
-				static_cast<unsigned>(bytesRead),
-				static_cast<unsigned>(sizeof(SensorConfig))
-			);
-			return;
-		}
-
-		if (sensorConfig.type > SensorConfigType::RUNTIME_CALIBRATION) {
-			m_Logger.warn(
-				"Skipping sensor calibration file index %d with invalid type=%d",
-				sensorId,
-				static_cast<int>(sensorConfig.type)
-			);
-			return;
-		}
-
 		m_Logger.debug(
 			"Found sensor calibration for %s at index %d",
 			calibrationConfigTypeToString(sensorConfig.type),
@@ -513,8 +517,6 @@ void Configuration::print() {
 			case SensorConfigType::BNO0XX:
 				m_Logger.info("            magEnabled: %d", c.data.bno0XX.magEnabled);
 
-				break;
-			default:
 				break;
 		}
 	}

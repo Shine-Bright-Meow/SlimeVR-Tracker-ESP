@@ -60,9 +60,9 @@
 #define samplingRateInMillis 10
 
 // Sleeping options
-#define POWERSAVING_MODE POWER_SAVING_LEGACY  // Minimum causes sporadic data pauses
+#define POWERSAVING_MODE POWER_SAVING_MODERATE  // Minimum causes sporadic data pauses
 #if POWERSAVING_MODE >= POWER_SAVING_MINIMUM
-#define TARGET_LOOPTIME_MICROS (samplingRateInMillis * 1000)
+//#define TARGET_LOOPTIME_MICROS (samplingRateInMillis * 900)
 #endif
 
 // Packet bundling/aggregation
@@ -76,7 +76,7 @@
 // Battery configuration
 #define batterySampleRate 10000
 #define BATTERY_LOW_VOLTAGE_DEEP_SLEEP false
-#define BATTERY_LOW_POWER_VOLTAGE 3.3f  // Voltage to raise error
+#define BATTERY_LOW_POWER_VOLTAGE 0.0f  // Voltage to raise error
 
 // Send updates over network only when changes are substantial
 // If "false" updates are sent at the sensor update rate (usually 100 TPS)
@@ -106,12 +106,28 @@
 #define USE_RUNTIME_CALIBRATION true
 #endif
 
-#ifndef DEBUG_MEASURE_TIME_TAKEN
-#define DEBUG_MEASURE_TIME_TAKEN false
+#define DEBUG_MEASURE_SENSOR_TIME_TAKEN false
+
+#ifndef DEBUG_MEASURE_SENSOR_TIME_TAKEN
+#define DEBUG_MEASURE_SENSOR_TIME_TAKEN false
 #endif
 
 #ifndef USE_OTA_TIMEOUT
 #define USE_OTA_TIMEOUT false
+#endif
+
+#ifndef USE_ESPNOW
+#define USE_ESPNOW true
+#endif
+
+#ifndef SEND_TEST_DATA
+#define SEND_TEST_DATA false
+#define TEST_DATA_RATE_HZ 100
+#endif
+
+
+#ifndef DONGLE_BASED_LIMITER
+#define DONGLE_BASED_LIMITER false
 #endif
 
 #endif  // SLIMEVR_DEBUG_H_

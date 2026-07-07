@@ -33,15 +33,18 @@
 
 #ifdef ESP32
 #include "nvs_flash.h"
+#include <WiFi.h>
+#else
+#include <ESP8266WiFi.h>
 #endif
 
 #ifdef EXT_SERIAL_COMMANDS
-#define CALLBACK_SIZE 7  // Increase callback size to allow for debug commands
+#define CALLBACK_SIZE 8  // Increase callback size to allow for debug commands
 #include "i2cscan.h"
 #endif
 
 #ifndef CALLBACK_SIZE
-#define CALLBACK_SIZE 6  // Default callback size
+#define CALLBACK_SIZE 7  // Default callback size
 #endif
 
 #if defined(VENDOR_URL) && defined(VENDOR_NAME) && defined(PRODUCT_NAME) \
@@ -97,6 +100,7 @@ decode_base64_length_null(const char* const b64char, unsigned int* b64ssidlength
 void cmdSet(CmdParser* parser) {
 	if (parser->getParamCount() != 1) {
 		if (parser->equalCmdParam(1, "WIFI")) {
+#if !USE_ESPNOW
 			if (parser->getParamCount() < 3) {
 				logger.error("CMD SET WIFI ERROR: Too few arguments");
 				logger.info("Syntax: SET WIFI \"<SSID>\" \"<PASSWORD>\"");
@@ -112,7 +116,11 @@ void cmdSet(CmdParser* parser) {
 				wifiNetwork.setWiFiCredentials(sc_ssid, sc_pw);
 				logger.info("CMD SET WIFI OK: New wifi credentials set, reconnecting");
 			}
+#else
+			logger.error("CMD SET WIFI ERROR: WiFi is not available in ESP-NOW mode");
+#endif
 		} else if (parser->equalCmdParam(1, "BWIFI")) {
+#if !USE_ESPNOW
 			if (parser->getParamCount() < 3) {
 				logger.error("CMD SET BWIFI ERROR: Too few arguments");
 				logger.info("Syntax: SET BWIFI <B64SSID> <B64PASSWORD>");
@@ -158,6 +166,9 @@ void cmdSet(CmdParser* parser) {
 				wifiNetwork.setWiFiCredentials(ssid, ppass);
 				logger.info("CMD SET BWIFI OK: New wifi credentials set, reconnecting");
 			}
+#else
+			logger.error("CMD SET BWIFI ERROR: WiFi is not available in ESP-NOW mode");
+#endif
 		} else {
 			logger.error("CMD SET ERROR: Unrecognized variable to set");
 		}
@@ -167,6 +178,7 @@ void cmdSet(CmdParser* parser) {
 }
 
 void printState() {
+#if !USE_ESPNOW
 	logger.info(
 		"SlimeVR Tracker, board: %d, hardware: %d, protocol: %d, firmware: %s, "
 		"address: %s, mac: %s, status: %d, wifi state: %d",
@@ -177,8 +189,20 @@ void printState() {
 		wifiNetwork.getAddress().toString().c_str(),
 		WiFi.macAddress().c_str(),
 		statusManager.getStatus(),
-		static_cast<int>(wifiNetwork.getWiFiState())
+		wifiNetwork.getWiFiState()
 	);
+#else
+	logger.info(
+		"SlimeVR Tracker, board: %d, hardware: %d, protocol: %d, firmware: %s, "
+		"mac: %s, status: %d",
+		BOARD,
+		HARDWARE_MCU,
+		PROTOCOL_VERSION,
+		FIRMWARE_VERSION,
+		WiFi.macAddress().c_str(),
+		statusManager.getStatus()
+	);
+#endif
 
 	logger.info("%s", FULL_VENDOR_STR);
 
@@ -298,6 +322,7 @@ void cmdGet(CmdParser* parser) {
 	}
 
 	if (parser->equalCmdParam(1, "TEST")) {
+#if !USE_ESPNOW
 		logger.info(
 			"[TEST] Board: %d, hardware: %d, protocol: %d, firmware: %s, address: %s, "
 			"mac: %s, status: %d, wifi state: %d",
@@ -308,8 +333,19 @@ void cmdGet(CmdParser* parser) {
 			wifiNetwork.getAddress().toString().c_str(),
 			WiFi.macAddress().c_str(),
 			statusManager.getStatus(),
-			static_cast<int>(wifiNetwork.getWiFiState())
+			wifiNetwork.getWiFiState()
 		);
+#else
+		logger.info(
+			"[TEST] Board: %d, hardware: %d, protocol: %d, firmware: %s, mac: %s, status: %d",
+			BOARD,
+			HARDWARE_MCU,
+			PROTOCOL_VERSION,
+			FIRMWARE_VERSION,
+			WiFi.macAddress().c_str(),
+			statusManager.getStatus()
+		);
+#endif
 		auto& sensor0 = sensorManager.getSensors()[0];
 		sensor0->motionLoop();
 		logger.info(
@@ -335,12 +371,14 @@ void cmdGet(CmdParser* parser) {
 	}
 
 	if (parser->equalCmdParam(1, "WIFISCAN")) {
+#if !USE_ESPNOW
 		logger.info("[WSCAN] Scanning for WiFi networks...");
 
 		// Scan would fail if connecting, stop connecting before scan
 		if (WiFi.status() != WL_CONNECTED) {
 			WiFi.disconnect();
 		}
+
 		if (wifiProvisioning.isProvisioning()) {
 			wifiProvisioning.stopProvisioning();
 		}
@@ -369,6 +407,9 @@ void cmdGet(CmdParser* parser) {
 		if (WiFi.status() != WL_CONNECTED) {
 			WiFi.begin();
 		}
+#else
+		logger.error("CMD GET WIFISCAN ERROR: WiFi is not available in ESP-NOW mode");
+#endif
 	}
 }
 
@@ -451,6 +492,37 @@ void cmdDeleteCalibration(CmdParser* parser) {
 	configuration.eraseSensors();
 }
 
+void cmdPair(CmdParser* parser) {
+	logger.info("PAIR: Entering ESP-NOW pairing mode");
+#if USE_ESPNOW
+	espNow.Pairing();
+	logger.info("PAIR: Tracker is now in pairing mode, waiting for gateway");
+#else
+	logger.error("PAIR: ESP-NOW is not enabled on this device");
+#endif
+}
+
+void cmdUnpair(CmdParser* parser) {
+	logger.info("UNPAIR: Clearing ESP-NOW pairing");
+#if USE_ESPNOW
+	// Clear gateway address and security code from memory
+	if (espNow.hasGatewayAddress) {
+		esp_now_del_peer(espNow.gatewayAddress);
+	}
+	memset(espNow.gatewayAddress, 0, 6);
+	memset(espNow.securityCode, 0, 8);
+	espNow.hasGatewayAddress = false;
+
+	// Clear from persistent storage
+	configuration.clearESPNowGateway();
+
+	logger.info("UNPAIR: Gateway pairing cleared, entering pairing mode");
+	espNow.Pairing();
+#else
+	logger.error("UNPAIR: ESP-NOW is not enabled on this device");
+#endif
+}
+
 #if EXT_SERIAL_COMMANDS
 void cmdScanI2C(CmdParser* parser) {
 	logger.info("Forcing I2C scan...");
@@ -465,6 +537,8 @@ void setUp() {
 	cmdCallbacks.addCmd("REBOOT", &cmdReboot);
 	cmdCallbacks.addCmd("DELCAL", &cmdDeleteCalibration);
 	cmdCallbacks.addCmd("TCAL", &cmdTemperatureCalibration);
+	cmdCallbacks.addCmd("PAIR", &cmdPair);
+	cmdCallbacks.addCmd("UNPAIR", &cmdUnpair);
 #if EXT_SERIAL_COMMANDS
 	cmdCallbacks.addCmd("SCANI2C", &cmdScanI2C);
 #endif

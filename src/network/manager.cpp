@@ -21,30 +21,39 @@
 	THE SOFTWARE.
 */
 #include "manager.h"
-
 #include "GlobalVars.h"
 
 namespace SlimeVR::Network {
 
-void Manager::setup() { wifiNetwork.setUp(); }
+void Manager::setup() {
+#if USE_ESPNOW
+	espNow.setUp();
+#else
+	:WiFiNetwork::setUp();
+#endif
+}
 
 void Manager::update() {
-	wifiNetwork.upkeep();
-
 	auto wasConnected = m_IsConnected;
 
+#if USE_ESPNOW
+	espNow.upkeep();
+	m_IsConnected = espNow.isConnected();
+#else
+	wifiNetwork.upkeep();
 	m_IsConnected = wifiNetwork.isConnected();
+#endif
 
-	if (!m_IsConnected) {
-		return;
-	}
+	if (!m_IsConnected) return;
 
 	if (!wasConnected) {
 		// WiFi was reconnected, rediscover the server and reconnect
 		networkConnection.reset();
 	}
 
+#if !SEND_TEST_DATA
 	networkConnection.update();
+#endif
 }
 
 }  // namespace SlimeVR::Network
